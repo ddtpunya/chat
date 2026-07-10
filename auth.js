@@ -1,8 +1,12 @@
 import {
     GoogleAuthProvider,
     signInWithPopup,
+    signInWithRedirect,
+    getRedirectResult,
     onAuthStateChanged,
-    signOut
+    signOut,
+    setPersistence,
+    browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 import {
@@ -17,8 +21,7 @@ import { auth, db } from "./firebase.js";
 // =========================
 // EMAIL YANG BOLEH LOGIN
 // =========================
-// Isi email yang diizinkan login di sini.
-// Jangan kosongkan kalau fitur whitelist mau dipakai.
+// Isi email kamu nanti di sini.
 const ALLOWED_EMAILS = [
     "verensmb@gmail.com",
     "anthonyan4556@gmail.com",
@@ -32,9 +35,17 @@ const logoutBtn = document.getElementById("logoutBtn");
 const userList = document.getElementById("userList");
 const myName = document.getElementById("myName");
 const myPhoto = document.getElementById("myPhoto");
-
 const loginPage = document.getElementById("loginPage");
 const chatPage = document.getElementById("chatPage");
+
+// =========================
+// PROVIDER GOOGLE
+// =========================
+const provider = new GoogleAuthProvider();
+
+provider.setCustomParameters({
+    prompt: "select_account"
+});
 
 // =========================
 // CEK EMAIL WHITELIST
@@ -48,25 +59,57 @@ function isEmailAllowed(email) {
 }
 
 // =========================
+// SET LOGIN PERSISTENCE
+// =========================
+async function prepareAuthPersistence() {
+    await setPersistence(auth, browserLocalPersistence);
+}
+
+// =========================
+// HANDLE REDIRECT RESULT
+// =========================
+prepareAuthPersistence()
+    .then(() => getRedirectResult(auth))
+    .catch((e) => {
+        console.error("Redirect login error:", e.code, e.message);
+    });
+
+// =========================
 // LOGIN GOOGLE
 // =========================
 if (loginBtn) {
     loginBtn.addEventListener("click", async () => {
         try {
-            console.log("Login Google diklik");
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = `<i class="fa-brands fa-google"></i> Membuka Google...`;
 
-            const provider = new GoogleAuthProvider();
-
-            // Selalu tampilkan pilihan akun Google
-            provider.setCustomParameters({
-                prompt: "select_account"
-            });
+            await prepareAuthPersistence();
 
             await signInWithPopup(auth, provider);
 
         } catch (e) {
             console.error("Login Google gagal:", e.code, e.message);
+
+            // Jangan tampilkan alert kalau user cuma menutup popup.
+            if (e.code === "auth/popup-closed-by-user") {
+                console.log("Popup login ditutup user.");
+                return;
+            }
+
+            // Kalau popup diblokir browser, pakai redirect.
+            if (
+                e.code === "auth/popup-blocked" ||
+                e.code === "auth/cancelled-popup-request"
+            ) {
+                await signInWithRedirect(auth, provider);
+                return;
+            }
+
             alert("Login gagal: " + e.message);
+
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = `<i class="fa-brands fa-google"></i> Login Google`;
         }
     });
 }
@@ -95,7 +138,6 @@ function renderUsers(me) {
     onSnapshot(collection(db, "users"), (snapshot) => {
         userList.innerHTML = "";
 
-        // Tombol Global Chat
         const globalDiv = document.createElement("div");
         globalDiv.className = "group-item";
         globalDiv.innerHTML = `
@@ -117,10 +159,8 @@ function renderUsers(me) {
 
         userList.appendChild(globalDiv);
 
-        // List user lain
         snapshot.forEach((d) => {
             const data = d.data();
-
             if (!data || data.uid === me.uid) return;
 
             const div = document.createElement("div");
@@ -159,14 +199,12 @@ function renderUsers(me) {
 // AUTH STATE
 // =========================
 onAuthStateChanged(auth, async (user) => {
-    // Jika belum login
     if (!user) {
         if (loginPage) loginPage.style.display = "flex";
         if (chatPage) chatPage.style.display = "none";
         return;
     }
 
-    // Cek whitelist email
     if (!isEmailAllowed(user.email)) {
         alert("Akses ditolak: Email Anda tidak terdaftar!");
 
@@ -178,7 +216,6 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // Simpan user ke Firestore
     try {
         await setDoc(
             doc(db, "users", user.uid),
@@ -197,11 +234,9 @@ onAuthStateChanged(auth, async (user) => {
         return;
     }
 
-    // Tampilkan halaman chat
     if (loginPage) loginPage.style.display = "none";
     if (chatPage) chatPage.style.display = "flex";
 
-    // Update profile
     if (myName) {
         myName.innerText = user.displayName || user.email.split("@")[0];
     }
@@ -212,6 +247,5 @@ onAuthStateChanged(auth, async (user) => {
             "https://ui-avatars.com/api/?name=" + encodeURIComponent(user.email);
     }
 
-    // Render daftar user
     renderUsers(user);
 });
