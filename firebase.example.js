@@ -3,12 +3,12 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "ISI_API_KEY_KAMU",
-  authDomain: "ISI_AUTH_DOMAIN_KAMU",
-  projectId: "ISI_PROJECT_ID_KAMU",
-  storageBucket: "ISI_STORAGE_BUCKET_KAMU",
-  messagingSenderId: "ISI_MESSAGING_SENDER_ID_KAMU",
-  appId: "ISI_APP_ID_KAMU"
+  apiKey: "AIzaSyB4VyaB_iWqnQvAdkk3rp_duVSIWTLROL8",
+  authDomain: "chat-app-cc947.firebaseapp.com",
+  projectId: "chat-app-cc947",
+  storageBucket: "chat-app-cc947.firebasestorage.app",
+  messagingSenderId: "666295111847",
+  appId: "1:666295111847:web:e23574eabaddf84eab8b82"
 };
 
 const app = initializeApp(firebaseConfig);
