@@ -308,6 +308,7 @@ body {
 }
 
 .group-item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 13px;
@@ -338,6 +339,18 @@ body {
     min-width: 0;
 }
 
+.group-name-row {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.group-name-row .group-name {
+    flex: 1;
+    min-width: 0;
+}
+
 .group-name {
     font-weight: 800;
     font-size: 15px;
@@ -345,6 +358,28 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.sidebar-unread-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #ff5b68, #e11d48);
+    border: 1px solid rgba(255,255,255,.32);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 5px 14px rgba(225, 29, 72, .38);
+}
+
+.sidebar-unread-badge-collapsed {
+    display: none;
 }
 
 .group-desc {
@@ -1312,10 +1347,6 @@ button.group-item {
     border: 1px solid rgba(255,255,255,.18);
 }
 
-.directory-avatar-global {
-    background: linear-gradient(145deg, #3b82f6, #7c3aed);
-    box-shadow: 0 0 14px rgba(59, 130, 246, .34);
-}
 
 .online-indicator {
     color: #22c55e;
@@ -1500,6 +1531,18 @@ button.group-item {
     justify-content: center;
     padding-left: 0;
     padding-right: 0;
+}
+
+#chatPage.sidebar-collapsed .sidebar-unread-badge-collapsed {
+    position: absolute;
+    top: 4px;
+    right: 2px;
+    display: inline-flex;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    font-size: 10px;
+    z-index: 3;
 }
 
 #chatPage.sidebar-collapsed .collapse-handle i {
@@ -2750,5 +2793,52 @@ button.group-item {
     .settings-menu-icon {
         width: 40px;
         height: 40px;
+    }
+}
+
+/* Empty chat state (Global Chat removed) */
+.chat-empty-state {
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px;
+    color: #9fb0ca;
+    text-align: center;
+}
+
+.chat-empty-state strong {
+    color: #eef5ff;
+    font-size: 18px;
+}
+
+.chat-empty-state > span:last-child {
+    max-width: 430px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.chat-empty-icon {
+    width: 62px;
+    height: 62px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 4px;
+    border-radius: 18px;
+    color: #b9d6ff;
+    font-size: 27px;
+    background: linear-gradient(145deg, rgba(59,130,246,.28), rgba(124,58,237,.22));
+    border: 1px solid rgba(147,197,253,.22);
+    box-shadow: 0 18px 40px rgba(0,0,0,.24);
+}
+
+/* Notification badge refinements v13 */
+@media (max-width: 768px) {
+    .sidebar-unread-badge {
+        min-width: 21px;
+        height: 21px;
+        font-size: 10px;
     }
 }

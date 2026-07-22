@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260723-friends-inside-settings-v11";
+import { auth, db, storage } from "./firebase.js?v=20260723-notification-badges-v13";
 import {
     collection,
     addDoc,
@@ -108,17 +108,18 @@ const EMOJIS = [
     "💚", "💛", "💜", "🔥", "✨", "🎉", "✅", "💯"
 ];
 
-let currentChatId = "global";
+let currentChatId = "";
 let unsubscribeChat = null;
 let activeReply = null;
 let isUploading = false;
 let currentRoom = {
-    kind: "global",
-    chatId: "global",
-    name: "Global Chat",
-    memberLabel: "Obrolan Publik",
-    photo: "https://ui-avatars.com/api/?name=Global+Chat&background=2563eb&color=ffffff",
-    memberUids: []
+    kind: "none",
+    chatId: "",
+    name: "Pilih Chat",
+    memberLabel: "Pilih teman atau grup untuk mulai mengobrol",
+    photo: "https://ui-avatars.com/api/?name=DDT&background=17275a&color=ffffff",
+    memberUids: [],
+    otherUserUid: null
 };
 let currentMessageSearch = "";
 let currentOpenModal = null;
@@ -330,7 +331,7 @@ function createMessageBase(user, chatId, replyData = activeReply) {
         name: user.displayName || user.email?.split("@")[0] || "User",
         photo: user.photoURL || "",
         chatId,
-        roomKind: currentRoom.kind || "global",
+        roomKind: currentRoom.kind,
         ...(currentRoom.kind === "group" && currentRoom.id ? { groupId: currentRoom.id } : {}),
         createdAt: serverTimestamp(),
         readBy: [user.uid],
@@ -528,6 +529,11 @@ sendBtn?.addEventListener("click", async () => {
 
     const user = auth.currentUser;
     if (!user) return;
+
+    if (!currentChatId || currentRoom.kind === "none") {
+        showToast("Pilih teman atau grup terlebih dahulu.", "error");
+        return;
+    }
 
     const targetChatId = currentChatId;
     const replyData = activeReply ? { ...activeReply } : null;
@@ -745,6 +751,11 @@ async function uploadAndSend(file, imageOnly = false) {
     const user = auth.currentUser;
     if (!user) {
         alert("Silakan login terlebih dahulu.");
+        return;
+    }
+
+    if (!currentChatId || currentRoom.kind === "none") {
+        showToast("Pilih teman atau grup terlebih dahulu.", "error");
         return;
     }
 
@@ -1544,11 +1555,21 @@ function updateFriendRequestBadge() {
         )).length
         : 0;
 
+    const badgeText = total > 99 ? "99+" : String(total);
+
     [profileFriendRequestBadge, settingsFriendRequestBadge].forEach((badge) => {
         if (!badge) return;
-        badge.textContent = String(total);
+        badge.textContent = badgeText;
         badge.hidden = total === 0;
+        badge.title = total > 0 ? `${total} permintaan teman masuk` : "";
+        badge.setAttribute("aria-label", total > 0 ? `${total} permintaan teman masuk` : "Tidak ada permintaan teman");
     });
+
+    if (profileSettingsBtn) {
+        profileSettingsBtn.title = total > 0
+            ? `Pengaturan — ${total} permintaan teman`
+            : "Pengaturan";
+    }
 
     profileSettingsBtn?.classList.toggle("has-friend-request", total > 0);
     profileFriendsBtn?.classList.toggle("has-request", total > 0);
@@ -1776,11 +1797,11 @@ async function searchFriendByEmail() {
             friendSearchResult.innerHTML = `
                 <div class="friend-search-feedback is-empty">
                     <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>Pencarian gagal. Periksa koneksi dan Firestore Rules v10.</span>
+                    <span>Pencarian gagal. Periksa koneksi dan Firestore Rules v13.</span>
                 </div>
             `;
         }
-        showToast("Pencarian gagal. Publish Firestore Rules v10.", "error");
+        showToast("Pencarian gagal. Publish Firestore Rules v13.", "error");
     } finally {
         friendSearchBusy = false;
         if (friendSearchBtn) friendSearchBtn.disabled = false;
@@ -1834,13 +1855,13 @@ async function performFriendAction(action, otherUid, button) {
         } else if (action === "remove") {
             await deleteDoc(relationshipRef);
             if (currentRoom.kind === "private" && currentRoom.otherUserUid === otherUid) {
-                window.openChat?.("global");
+                showNoActiveChat();
             }
             showToast(`${name} dihapus dari daftar teman.`);
         }
     } catch (error) {
         console.error("Aksi pertemanan gagal:", error);
-        showToast("Aksi pertemanan gagal. Publish Firestore Rules v10.", "error");
+        showToast("Aksi pertemanan gagal. Publish Firestore Rules v13.", "error");
     } finally {
         if (button) button.disabled = false;
     }
@@ -1888,7 +1909,7 @@ window.addEventListener("chat-friendships-updated", () => {
         currentRoom.otherUserUid &&
         !window.chatFriendUidSet?.has(currentRoom.otherUserUid)
     ) {
-        window.openChat?.("global");
+        showNoActiveChat();
         showToast("Private chat ditutup karena hubungan pertemanan sudah tidak aktif.", "error");
     }
 });
@@ -2053,6 +2074,10 @@ function refreshChatSettings() {
 }
 
 chatSettingsBtn?.addEventListener("click", () => {
+    if (!currentChatId || currentRoom.kind === "none") {
+        showToast("Pilih chat terlebih dahulu.", "error");
+        return;
+    }
     refreshChatSettings();
     openModal(chatSettingsModal);
 });
@@ -2077,6 +2102,65 @@ clearRoomSearchBtn?.addEventListener("click", () => {
 // =========================
 // OPEN CHAT
 // =========================
+function setActiveChatControls(enabled) {
+    const active = Boolean(enabled);
+
+    if (input) {
+        input.disabled = !active;
+        input.placeholder = active
+            ? "Ketik pesan... (Ctrl+V untuk paste gambar)"
+            : "Pilih teman atau grup terlebih dahulu";
+    }
+
+    [emojiBtn, imageBtn, fileBtn, sendBtn, toggleMessageSearchBtn, chatSettingsBtn].forEach((button) => {
+        if (button) button.disabled = !active;
+    });
+
+    if (messageSearchInput) messageSearchInput.disabled = !active;
+}
+
+function showNoActiveChat() {
+    unsubscribeChat?.();
+    unsubscribeChat = null;
+    currentChatId = "";
+    latestMessageDocs = [];
+    currentRoom = {
+        kind: "none",
+        chatId: "",
+        name: "Pilih Chat",
+        memberLabel: "Pilih teman atau grup untuk mulai mengobrol",
+        photo: roomAvatar("DDT", "17275a"),
+        memberUids: [],
+        otherUserUid: null
+    };
+
+    clearReply();
+    closeEmojiPicker();
+    clearMessageSearch();
+    setActiveChatControls(false);
+
+    if (roomName) roomName.textContent = currentRoom.name;
+    setRoomMemberLabel(currentRoom.memberLabel, null);
+    if (chatGroupAvatar) chatGroupAvatar.src = currentRoom.photo;
+    if (messages) {
+        messages.innerHTML = `
+            <div class="chat-empty-state">
+                <span class="chat-empty-icon"><i class="fa-regular fa-comments"></i></span>
+                <strong>Belum ada chat yang dipilih</strong>
+                <span>Pilih teman di sidebar atau buat grup baru untuk mulai mengobrol.</span>
+            </div>
+        `;
+    }
+
+    scrollBottomBtn?.classList.remove("show");
+    window.setActiveSidebarChat?.("");
+
+    if (isMobile()) {
+        document.getElementById("chatPage")?.classList.remove("mobile-chat-open");
+        if (backBtn) backBtn.style.display = "none";
+    }
+}
+
 function roomAvatar(name, background = "2563eb") {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${background}&color=ffffff`;
 }
@@ -2089,18 +2173,7 @@ window.openChat = function (target) {
     closeEmojiPicker();
     clearMessageSearch();
 
-    if (target === "global") {
-        const userCount = Number(window.chatDirectoryUserCount || 0);
-        currentRoom = {
-            kind: "global",
-            chatId: "global",
-            name: "Global Chat",
-            memberLabel: userCount ? `${userCount} anggota terdaftar` : "Obrolan Publik",
-            photo: roomAvatar("Global Chat"),
-            memberUids: [],
-            otherUserUid: null
-        };
-    } else if (target?.kind === "group") {
+    if (target?.kind === "group") {
         const name = target.name || "Grup Chat";
         const memberUids = Array.isArray(target.memberUids) ? target.memberUids : [];
         currentRoom = {
@@ -2141,6 +2214,7 @@ window.openChat = function (target) {
         };
     }
 
+    setActiveChatControls(true);
     currentChatId = currentRoom.chatId;
     latestMessageDocs = [];
     if (roomName) roomName.textContent = currentRoom.name;
@@ -2162,7 +2236,7 @@ window.openChat = function (target) {
 };
 
 auth.onAuthStateChanged((user) => {
-    if (user) window.openChat("global");
+    if (user) showNoActiveChat();
 });
 
 backBtn?.addEventListener("click", () => {

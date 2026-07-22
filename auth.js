@@ -18,7 +18,7 @@ import {
     deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js?v=20260723-friends-inside-settings-v11";
+import { auth, db } from "./firebase.js?v=20260723-notification-badges-v13";
 
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.
@@ -44,10 +44,12 @@ let directoryUsers = [];
 let directoryGroups = [];
 let directoryFriendships = [];
 let directoryMode = "all";
-let activeChatId = "global";
+let activeChatId = "";
 let unsubscribeUserProfiles = new Map();
 let unsubscribeGroups = null;
 let unsubscribeFriendships = null;
+let unsubscribePrivateUnread = new Map();
+let privateUnreadCounts = new Map();
 let presenceHeartbeatTimer = null;
 let directoryClockTimer = null;
 
@@ -94,6 +96,81 @@ function getAcceptedFriendUidSet() {
     });
 
     return accepted;
+}
+
+function formatNotificationCount(value = 0) {
+    const total = Math.max(0, Number(value) || 0);
+    return total > 99 ? "99+" : String(total);
+}
+
+function getPrivateUnreadCount(chatId = "") {
+    return Math.max(0, Number(privateUnreadCounts.get(chatId)) || 0);
+}
+
+function clearPrivateUnreadListeners() {
+    unsubscribePrivateUnread.forEach((unsubscribe) => {
+        try { unsubscribe?.(); } catch { /* no-op */ }
+    });
+    unsubscribePrivateUnread.clear();
+    privateUnreadCounts.clear();
+}
+
+function syncPrivateUnreadListeners(user) {
+    if (!user?.uid) {
+        clearPrivateUnreadListeners();
+        return;
+    }
+
+    const acceptedFriendUids = getAcceptedFriendUidSet();
+    const activeChatIds = new Set(
+        Array.from(acceptedFriendUids, (otherUid) => directChatId(user.uid, otherUid))
+    );
+
+    unsubscribePrivateUnread.forEach((unsubscribe, chatId) => {
+        if (activeChatIds.has(chatId)) return;
+        try { unsubscribe?.(); } catch { /* no-op */ }
+        unsubscribePrivateUnread.delete(chatId);
+        privateUnreadCounts.delete(chatId);
+    });
+
+    acceptedFriendUids.forEach((otherUid) => {
+        const chatId = directChatId(user.uid, otherUid);
+        if (unsubscribePrivateUnread.has(chatId)) return;
+
+        const messagesQuery = query(
+            collection(db, "messages"),
+            where("chatId", "==", chatId)
+        );
+
+        const unsubscribe = onSnapshot(
+            messagesQuery,
+            (snapshot) => {
+                let unreadTotal = 0;
+
+                snapshot.forEach((messageDoc) => {
+                    const data = messageDoc.data() || {};
+                    const readers = Array.isArray(data.readBy) ? data.readBy : [];
+                    if (data.uid !== user.uid && !readers.includes(user.uid)) {
+                        unreadTotal += 1;
+                    }
+                });
+
+                privateUnreadCounts.set(chatId, unreadTotal);
+                window.chatPrivateUnreadCounts = Object.fromEntries(privateUnreadCounts);
+                renderDirectory();
+                window.dispatchEvent(new CustomEvent("chat-unread-updated", {
+                    detail: { chatId, unreadTotal }
+                }));
+            },
+            (error) => {
+                console.warn(`Gagal menghitung pesan belum dibaca untuk ${chatId}:`, error);
+                privateUnreadCounts.set(chatId, 0);
+                renderDirectory();
+            }
+        );
+
+        unsubscribePrivateUnread.set(chatId, unsubscribe);
+    });
 }
 
 function timestampToDate(value) {
@@ -332,26 +409,6 @@ logoutBtn?.addEventListener("click", async () => {
     }
 });
 
-function createGlobalItem() {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "group-item";
-    item.dataset.chatId = "global";
-    item.dataset.kind = "global";
-    item.innerHTML = `
-        <span class="directory-avatar directory-avatar-global">
-            <i class="fa-solid fa-earth-americas"></i>
-        </span>
-        <span class="group-info">
-            <span class="group-name">Global Chat</span>
-            <span class="group-desc">Obrolan Publik</span>
-        </span>
-        <span class="group-time"><i class="fa-solid fa-users"></i></span>
-    `;
-    item.addEventListener("click", () => window.openChat?.("global"));
-    return item;
-}
-
 function createGroupItem(group) {
     const item = document.createElement("button");
     item.type = "button";
@@ -397,14 +454,21 @@ function createUserItem(user) {
     const photo = safeImageURL(user.photo, name);
     const online = isUserOnline(user);
     const presenceLabel = formatLastSeen(user);
+    const chatId = directChatId(currentUser.uid, user.uid);
+    const unreadTotal = getPrivateUnreadCount(chatId);
+    const unreadLabel = formatNotificationCount(unreadTotal);
 
     item.innerHTML = `
         <img src="${escapeHTML(photo)}" alt="avatar">
         <span class="group-info">
-            <span class="group-name">${escapeHTML(name)}</span>
+            <span class="group-name-row">
+                <span class="group-name">${escapeHTML(name)}</span>
+                ${unreadTotal > 0 ? `<span class="sidebar-unread-badge" title="${unreadTotal} pesan belum dibaca" aria-label="${unreadTotal} pesan belum dibaca">${unreadLabel}</span>` : ""}
+            </span>
             <span class="group-desc user-presence-text ${online ? "is-online" : "is-offline"}">${escapeHTML(presenceLabel)}</span>
         </span>
         <span class="group-time online-indicator ${online ? "is-online" : "is-offline"}" title="${escapeHTML(presenceLabel)}">●</span>
+        ${unreadTotal > 0 ? `<span class="sidebar-unread-badge sidebar-unread-badge-collapsed" aria-hidden="true">${unreadLabel}</span>` : ""}
     `;
 
     item.addEventListener("click", () => {
@@ -436,11 +500,6 @@ function renderDirectory() {
     let visibleCount = 0;
 
     if (directoryMode === "all" || directoryMode === "groups") {
-        if (matchesSearch("Global Chat", "Obrolan Publik")) {
-            userList.appendChild(createGlobalItem());
-            visibleCount += 1;
-        }
-
         directoryGroups
             .slice()
             .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id"))
@@ -467,7 +526,7 @@ function renderDirectory() {
     if (!visibleCount) {
         const empty = document.createElement("div");
         empty.className = "directory-empty";
-        empty.innerHTML = `<i class="fa-regular fa-folder-open"></i><span>Tidak ada hasil. Tambahkan teman melalui tombol Teman.</span>`;
+        empty.innerHTML = `<i class="fa-regular fa-folder-open"></i><span>Belum ada chat. Tambahkan teman melalui Pengaturan atau buat grup baru.</span>`;
         userList.appendChild(empty);
     }
 
@@ -480,6 +539,7 @@ function renderDirectory() {
     window.chatFriendUidSet = acceptedFriendUids;
     window.chatDirectoryUserCount = directoryUsers.length;
     window.chatFriendCount = acceptedFriendUids.size;
+    window.chatPrivateUnreadCounts = Object.fromEntries(privateUnreadCounts);
     window.dispatchEvent(new CustomEvent("chat-directory-updated"));
     window.dispatchEvent(new CustomEvent("chat-friendships-updated"));
 }
@@ -494,7 +554,7 @@ groupsBtn?.addEventListener("click", () => {
 });
 
 window.setActiveSidebarChat = (chatId) => {
-    activeChatId = chatId || "global";
+    activeChatId = chatId || "";
     userList?.querySelectorAll(".group-item").forEach((item) => {
         item.classList.toggle("active", item.dataset.chatId === activeChatId);
     });
@@ -552,6 +612,7 @@ function syncRelatedUserProfileListeners(user) {
 
 function startDirectoryListeners(user) {
     clearUserProfileListeners();
+    clearPrivateUnreadListeners();
     unsubscribeGroups?.();
     unsubscribeFriendships?.();
     directoryUsers = [];
@@ -584,12 +645,14 @@ function startDirectoryListeners(user) {
         (snapshot) => {
             directoryFriendships = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
             syncRelatedUserProfileListeners(user);
+            syncPrivateUnreadListeners(user);
             renderDirectory();
         },
         (error) => {
             console.error("Gagal mengambil daftar pertemanan:", error);
             directoryFriendships = [];
             syncRelatedUserProfileListeners(user);
+            syncPrivateUnreadListeners(user);
             renderDirectory();
         }
     );
@@ -602,6 +665,7 @@ async function handleAuthStateChange(user) {
     if (!user) {
         stopPresenceTracking();
         clearUserProfileListeners();
+        clearPrivateUnreadListeners();
         unsubscribeGroups?.();
         unsubscribeFriendships?.();
         directoryFriendships = [];
