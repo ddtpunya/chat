@@ -32,7 +32,7 @@
         }
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260723-session-restore-fix-v8">
+    <link rel="stylesheet" href="style.css?v=20260723-friends-inside-settings-v11">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -71,8 +71,9 @@
             </div>
 
             <div class="profile-actions">
-                <button id="profileSettingsBtn" class="icon-btn" title="Pengaturan profil" type="button">
+                <button id="profileSettingsBtn" class="icon-btn" title="Pengaturan" type="button">
                     <i class="fa-solid fa-gear"></i>
+                    <span id="profileFriendRequestBadge" class="friend-request-badge settings-icon-badge" hidden>0</span>
                 </button>
                 <button id="logoutBtn" class="icon-btn" title="Logout" type="button">
                     <i class="fa-solid fa-right-from-bracket"></i>
@@ -83,7 +84,7 @@
         <div class="sidebar-search-wrap">
             <label class="search-box" for="sidebarSearchInput">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input id="sidebarSearchInput" type="search" placeholder="Cari user atau grup..." autocomplete="off">
+                <input id="sidebarSearchInput" type="search" placeholder="Cari teman atau grup..." autocomplete="off">
             </label>
         </div>
 
@@ -91,6 +92,7 @@
             <i class="fa-regular fa-message"></i>
             <span class="button-label">Groups</span>
         </button>
+
 
         <button id="createGroupBtn" class="create-group-btn" type="button">
             <i class="fa-solid fa-plus"></i>
@@ -192,6 +194,49 @@
 
 <div id="modalBackdrop" class="modal-backdrop" hidden></div>
 
+<section id="friendsModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="friendsModalTitle">
+    <div class="modal-card friend-manager-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="friendsModalTitle">Teman & Permintaan</h2>
+                <p>Private chat hanya muncul setelah permintaan diterima.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <form id="friendSearchForm" class="friend-search-form" autocomplete="off">
+                <label class="friend-search-box" for="friendSearchInput">
+                    <i class="fa-brands fa-google"></i>
+                    <input
+                        id="friendSearchInput"
+                        type="email"
+                        inputmode="email"
+                        placeholder="Masukkan Gmail lengkap..."
+                        autocomplete="off"
+                        spellcheck="false"
+                        required
+                    >
+                </label>
+                <button id="friendSearchBtn" class="primary-btn friend-search-btn" type="submit">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    Cari
+                </button>
+            </form>
+            <p class="friend-search-note">
+                Akun tidak ditampilkan sebagai daftar. Pencarian hanya berjalan setelah Gmail lengkap dimasukkan dan tombol Cari ditekan.
+            </p>
+            <div id="friendSearchResult" class="friend-search-result" hidden aria-live="polite"></div>
+            <div id="friendSummary" class="friend-summary">Memuat teman dan permintaan...</div>
+            <div id="friendManagementList" class="friend-management-list" aria-live="polite"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="primary-btn" type="button" data-close-modal>Selesai</button>
+        </div>
+    </div>
+</section>
+
 <section id="createGroupModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="createGroupTitle">
     <form id="createGroupForm" class="modal-card">
         <div class="modal-header">
@@ -238,6 +283,19 @@
             <input id="profileDisplayName" class="modal-input" type="text" maxlength="40" required>
             <label class="field-label" for="profileEmail">Email</label>
             <input id="profileEmail" class="modal-input" type="email" readonly>
+
+            <button id="profileFriendsBtn" class="settings-menu-btn" type="button">
+                <span class="settings-menu-icon">
+                    <i class="fa-solid fa-user-group"></i>
+                </span>
+                <span class="settings-menu-copy">
+                    <strong>Teman & Permintaan</strong>
+                    <small>Cari Gmail, terima permintaan, dan kelola teman.</small>
+                </span>
+                <span id="settingsFriendRequestBadge" class="settings-menu-badge" hidden>0</span>
+                <i class="fa-solid fa-chevron-right settings-menu-arrow"></i>
+            </button>
+
             <label class="switch-row">
                 <span>
                     <strong>Mode pesan ringkas</strong>
@@ -350,8 +408,8 @@
 
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-<script type="module" src="firebase.js?v=20260723-session-restore-fix-v8"></script>
-<script type="module" src="auth.js?v=20260723-session-restore-fix-v8"></script>
-<script type="module" src="app.js?v=20260723-session-restore-fix-v8"></script>
+<script type="module" src="firebase.js?v=20260723-friends-inside-settings-v11"></script>
+<script type="module" src="auth.js?v=20260723-friends-inside-settings-v11"></script>
+<script type="module" src="app.js?v=20260723-friends-inside-settings-v11"></script>
 </body>
 </html>
