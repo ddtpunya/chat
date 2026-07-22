@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260723-notification-badges-v13";
+import { auth, db, storage } from "./firebase.js?v=20260723-safari-100-percent-fit-v16";
 import {
     collection,
     addDoc,
@@ -20,6 +20,49 @@ import {
     uploadBytesResumable,
     getDownloadURL
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
+
+function syncResponsiveViewport() {
+    const viewport = window.visualViewport;
+    const viewportHeight = Math.max(1, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
+    const viewportWidth = Math.max(1, Math.round(viewport?.width || window.innerWidth || document.documentElement.clientWidth));
+    const viewportTop = Math.max(0, Math.round(viewport?.offsetTop || 0));
+    const viewportLeft = Math.max(0, Math.round(viewport?.offsetLeft || 0));
+    const layoutHeight = Math.max(viewportHeight, Math.round(window.innerHeight || viewportHeight));
+    const keyboardGap = Math.max(0, layoutHeight - viewportHeight);
+
+    const root = document.documentElement;
+    root.style.setProperty("--visual-height", `${viewportHeight}px`);
+    root.style.setProperty("--visual-width", `${viewportWidth}px`);
+    root.style.setProperty("--visual-top", `${viewportTop}px`);
+    root.style.setProperty("--visual-left", `${viewportLeft}px`);
+    root.style.setProperty("--app-height", `${viewportHeight}px`);
+    root.style.setProperty("--app-width", `${viewportWidth}px`);
+    document.body?.classList.toggle("mobile-keyboard-open", viewportWidth <= 768 && keyboardGap > 100);
+}
+
+let responsiveViewportFrame = 0;
+function scheduleResponsiveViewport() {
+    if (responsiveViewportFrame) cancelAnimationFrame(responsiveViewportFrame);
+    responsiveViewportFrame = requestAnimationFrame(() => {
+        responsiveViewportFrame = 0;
+        syncResponsiveViewport();
+    });
+}
+
+syncResponsiveViewport();
+window.addEventListener("resize", scheduleResponsiveViewport, { passive: true });
+window.visualViewport?.addEventListener("resize", scheduleResponsiveViewport, { passive: true });
+window.visualViewport?.addEventListener("scroll", scheduleResponsiveViewport, { passive: true });
+window.addEventListener("orientationchange", () => {
+    scheduleResponsiveViewport();
+    window.setTimeout(syncResponsiveViewport, 140);
+    window.setTimeout(syncResponsiveViewport, 420);
+}, { passive: true });
+document.addEventListener("focusin", () => window.setTimeout(syncResponsiveViewport, 60), { passive: true });
+document.addEventListener("focusout", () => {
+    window.setTimeout(syncResponsiveViewport, 80);
+    window.setTimeout(syncResponsiveViewport, 350);
+}, { passive: true });
 
 const sendBtn = document.getElementById("sendBtn");
 const input = document.getElementById("messageInput");
@@ -55,6 +98,13 @@ const chatSettingsBtn = document.getElementById("chatSettingsBtn");
 const profileFriendsBtn = document.getElementById("profileFriendsBtn");
 const profileFriendRequestBadge = document.getElementById("profileFriendRequestBadge");
 const settingsFriendRequestBadge = document.getElementById("settingsFriendRequestBadge");
+const loginInstallIphoneBtn = document.getElementById("loginInstallIphoneBtn");
+const profileInstallIphoneBtn = document.getElementById("profileInstallIphoneBtn");
+const iosInstallModal = document.getElementById("iosInstallModal");
+const iosInstallStatusText = document.getElementById("iosInstallStatusText");
+const iosInstalledNotice = document.getElementById("iosInstalledNotice");
+const iosInstallSteps = document.getElementById("iosInstallSteps");
+const installStatusBadge = document.getElementById("installStatusBadge");
 const friendsModal = document.getElementById("friendsModal");
 const friendSearchForm = document.getElementById("friendSearchForm");
 const friendSearchInput = document.getElementById("friendSearchInput");
@@ -1867,6 +1917,58 @@ async function performFriendAction(action, otherUid, button) {
     }
 }
 
+function isStandaloneApp() {
+    return window.matchMedia?.("(display-mode: standalone)")?.matches === true
+        || window.navigator.standalone === true;
+}
+
+function isAppleMobileDevice() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function isSafariBrowser() {
+    const userAgent = navigator.userAgent;
+    return /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS/i.test(userAgent);
+}
+
+function refreshInstallGuideState() {
+    const installed = isStandaloneApp();
+    const appleMobile = isAppleMobileDevice();
+    const safari = isSafariBrowser();
+
+    if (installStatusBadge) installStatusBadge.hidden = !installed;
+    if (iosInstalledNotice) iosInstalledNotice.hidden = !installed;
+    if (iosInstallSteps) iosInstallSteps.hidden = installed;
+
+    if (iosInstallStatusText) {
+        if (installed) {
+            iosInstallStatusText.textContent = "CHAT DDT sedang berjalan sebagai aplikasi Home Screen.";
+        } else if (!appleMobile) {
+            iosInstallStatusText.textContent = "Panduan ini ditujukan untuk Safari pada iPhone atau iPad.";
+        } else if (!safari) {
+            iosInstallStatusText.textContent = "Buka halaman yang sama di Safari, lalu gunakan Add to Home Screen.";
+        } else {
+            iosInstallStatusText.textContent = "Ikuti empat langkah berikut untuk memasang CHAT DDT.";
+        }
+    }
+}
+
+function openIosInstallGuide() {
+    refreshInstallGuideState();
+    openModal(iosInstallModal);
+}
+
+loginInstallIphoneBtn?.addEventListener("click", openIosInstallGuide);
+profileInstallIphoneBtn?.addEventListener("click", () => {
+    closeModal();
+    window.setTimeout(openIosInstallGuide, 210);
+});
+
+window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", refreshInstallGuideState);
+window.addEventListener("pageshow", refreshInstallGuideState);
+refreshInstallGuideState();
+
 profileFriendsBtn?.addEventListener("click", () => {
     if (friendSearchInput) friendSearchInput.value = "";
     searchedFriendUser = null;
@@ -2246,6 +2348,7 @@ backBtn?.addEventListener("click", () => {
 });
 
 window.addEventListener("resize", () => {
+    syncResponsiveViewport();
     if (!isMobile()) {
         document.getElementById("chatPage")?.classList.remove("mobile-chat-open");
         if (backBtn) backBtn.style.display = "none";

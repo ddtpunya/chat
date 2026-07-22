@@ -2,37 +2,77 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="theme-color" content="#111a35">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="CHAT DDT">
+    <meta name="format-detection" content="telephone=no">
+    <link rel="manifest" href="manifest.webmanifest?v=20260723-safari-100-percent-fit-v16">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260723-safari-100-percent-fit-v16">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+
     <script>
     (() => {
-        const APP_PATH = "/chat-app-index.html/";
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", async () => {
-                try {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    await Promise.all(
-                        registrations
-                            .filter((registration) => {
-                                try {
-                                    return new URL(registration.scope).pathname.startsWith(APP_PATH);
-                                } catch {
-                                    return false;
-                                }
-                            })
-                            .map((registration) => registration.unregister())
-                    );
-                } catch (error) {
-                    console.warn("Service worker cleanup gagal:", error);
-                }
-            });
-        }
+        let viewportFrame = 0;
+
+        const applySafariViewport = () => {
+            viewportFrame = 0;
+            const viewport = window.visualViewport;
+            const width = Math.max(1, Math.round(viewport?.width || window.innerWidth || document.documentElement.clientWidth));
+            const height = Math.max(1, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
+            const offsetLeft = Math.max(0, Math.round(viewport?.offsetLeft || 0));
+            const offsetTop = Math.max(0, Math.round(viewport?.offsetTop || 0));
+
+            const root = document.documentElement;
+            root.style.setProperty("--visual-width", `${width}px`);
+            root.style.setProperty("--visual-height", `${height}px`);
+            root.style.setProperty("--visual-left", `${offsetLeft}px`);
+            root.style.setProperty("--visual-top", `${offsetTop}px`);
+
+            // Compatibility variables used by previous versions.
+            root.style.setProperty("--app-width", `${width}px`);
+            root.style.setProperty("--app-height", `${height}px`);
+        };
+
+        const scheduleSafariViewport = () => {
+            if (viewportFrame) cancelAnimationFrame(viewportFrame);
+            viewportFrame = requestAnimationFrame(applySafariViewport);
+        };
+
+        applySafariViewport();
+        window.addEventListener("resize", scheduleSafariViewport, { passive: true });
+        window.addEventListener("orientationchange", () => {
+            scheduleSafariViewport();
+            setTimeout(applySafariViewport, 120);
+            setTimeout(applySafariViewport, 420);
+        }, { passive: true });
+        window.addEventListener("pageshow", applySafariViewport, { passive: true });
+        window.addEventListener("load", applySafariViewport, { passive: true });
+        window.visualViewport?.addEventListener("resize", scheduleSafariViewport, { passive: true });
+        window.visualViewport?.addEventListener("scroll", scheduleSafariViewport, { passive: true });
+        document.addEventListener("focusin", () => setTimeout(applySafariViewport, 80), { passive: true });
+        document.addEventListener("focusout", () => {
+            setTimeout(applySafariViewport, 80);
+            setTimeout(applySafariViewport, 350);
+        }, { passive: true });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260723-notification-badges-v13">
+    <script>
+    (() => {
+        if (!("serviceWorker" in navigator)) return;
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("./service-worker.js?v=20260723-safari-100-percent-fit-v16", { scope: "./" })
+                .then((registration) => registration.update())
+                .catch((error) => console.warn("Service worker gagal:", error));
+        });
+    })();
+    </script>
+    <link rel="stylesheet" href="style.css?v=20260723-safari-100-percent-fit-v16">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -52,6 +92,10 @@
         <button id="loginBtn" type="button">
             <i class="fa-brands fa-google"></i>
             Login Google
+        </button>
+        <button id="loginInstallIphoneBtn" class="login-install-btn" type="button">
+            <i class="fa-brands fa-apple"></i>
+            Install di iPhone
         </button>
     </div>
 </div>
@@ -296,6 +340,18 @@
                 <i class="fa-solid fa-chevron-right settings-menu-arrow"></i>
             </button>
 
+            <button id="profileInstallIphoneBtn" class="settings-menu-btn" type="button">
+                <span class="settings-menu-icon">
+                    <i class="fa-brands fa-apple"></i>
+                </span>
+                <span class="settings-menu-copy">
+                    <strong>Install di iPhone</strong>
+                    <small>Tambahkan CHAT DDT ke Home Screen seperti aplikasi.</small>
+                </span>
+                <span id="installStatusBadge" class="install-status-badge" hidden>Terpasang</span>
+                <i class="fa-solid fa-chevron-right settings-menu-arrow"></i>
+            </button>
+
             <label class="switch-row">
                 <span>
                     <strong>Mode pesan ringkas</strong>
@@ -348,6 +404,69 @@
         </div>
         <div class="modal-footer">
             <button class="primary-btn" type="button" data-close-modal>Selesai</button>
+        </div>
+    </div>
+</section>
+
+<section id="iosInstallModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle">
+    <div class="modal-card ios-install-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="iosInstallTitle">Install CHAT DDT di iPhone</h2>
+                <p id="iosInstallStatusText">Gunakan Safari untuk menambahkan aplikasi ke Home Screen.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body ios-install-body">
+            <div id="iosInstalledNotice" class="ios-installed-notice" hidden>
+                <i class="fa-solid fa-circle-check"></i>
+                <div>
+                    <strong>CHAT DDT sudah dibuka sebagai aplikasi.</strong>
+                    <small>Tidak perlu memasang ulang.</small>
+                </div>
+            </div>
+
+            <div id="iosInstallSteps" class="ios-install-steps">
+                <div class="ios-install-step">
+                    <span>1</span>
+                    <div>
+                        <strong>Buka halaman ini menggunakan Safari</strong>
+                        <small>Menu Add to Home Screen tersedia melalui Safari iPhone.</small>
+                    </div>
+                </div>
+                <div class="ios-install-step">
+                    <span>2</span>
+                    <div>
+                        <strong>Tekan tombol Bagikan</strong>
+                        <small>Gunakan ikon kotak dengan panah ke atas pada toolbar Safari.</small>
+                    </div>
+                    <i class="fa-solid fa-arrow-up-from-bracket ios-share-icon"></i>
+                </div>
+                <div class="ios-install-step">
+                    <span>3</span>
+                    <div>
+                        <strong>Pilih “Tambahkan ke Layar Utama”</strong>
+                        <small>Atau “Add to Home Screen” sesuai bahasa iPhone.</small>
+                    </div>
+                </div>
+                <div class="ios-install-step">
+                    <span>4</span>
+                    <div>
+                        <strong>Tekan Tambah</strong>
+                        <small>Ikon CHAT DDT akan muncul di Home Screen dan terbuka tanpa bar Safari.</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ios-install-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Setelah pertama kali dibuka dari ikon Home Screen, login satu kali di versi aplikasi karena penyimpanan sesi web app dapat terpisah dari tab Safari.</span>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="primary-btn" type="button" data-close-modal>Mengerti</button>
         </div>
     </div>
 </section>
@@ -408,8 +527,8 @@
 
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-<script type="module" src="firebase.js?v=20260723-notification-badges-v13"></script>
-<script type="module" src="auth.js?v=20260723-notification-badges-v13"></script>
-<script type="module" src="app.js?v=20260723-notification-badges-v13"></script>
+<script type="module" src="firebase.js?v=20260723-safari-100-percent-fit-v16"></script>
+<script type="module" src="auth.js?v=20260723-safari-100-percent-fit-v16"></script>
+<script type="module" src="app.js?v=20260723-safari-100-percent-fit-v16"></script>
 </body>
 </html>
