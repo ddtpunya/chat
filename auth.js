@@ -4,34 +4,27 @@ import {
     signInWithRedirect,
     getRedirectResult,
     onAuthStateChanged,
-    signOut,
-    setPersistence,
-    browserLocalPersistence
+    signOut
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 import {
     doc,
     setDoc,
     collection,
-    onSnapshot
+    onSnapshot,
+    query,
+    where,
+    serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js";
+import { auth, db } from "./firebase.js?v=20260723-session-restore-fix-v8";
 
-// =========================
-// EMAIL YANG BOLEH LOGIN
-// =========================
-// Isi email kamu nanti di sini.
+// Tambahkan email lain ke daftar ini agar mereka dapat login dan muncul
+// sebagai pilihan private chat / anggota grup.
 const ALLOWED_EMAILS = [
-    "verensmb@gmail.com",
-    "anthonyan4556@gmail.com",
-    "verenlim49@gmail.com",
-    "anthonywian4@gmail.com",
+    "antho56@gmail.com"
 ];
 
-// =========================
-// ELEMENT
-// =========================
 const loginBtn = document.getElementById("loginBtn");
 const logoutBtn = document.getElementById("logoutBtn");
 const userList = document.getElementById("userList");
@@ -39,169 +32,478 @@ const myName = document.getElementById("myName");
 const myPhoto = document.getElementById("myPhoto");
 const loginPage = document.getElementById("loginPage");
 const chatPage = document.getElementById("chatPage");
+const sidebarSearchInput = document.getElementById("sidebarSearchInput");
+const groupsBtn = document.getElementById("groupsBtn");
 
-// =========================
-// PROVIDER GOOGLE
-// =========================
 const provider = new GoogleAuthProvider();
+provider.setCustomParameters({ prompt: "select_account" });
 
-provider.setCustomParameters({
-    prompt: "select_account"
+let currentUser = null;
+let directoryUsers = [];
+let directoryGroups = [];
+let directoryMode = "all";
+let activeChatId = "global";
+let unsubscribeUsers = null;
+let unsubscribeGroups = null;
+let presenceHeartbeatTimer = null;
+let directoryClockTimer = null;
+
+const PRESENCE_HEARTBEAT_MS = 60 * 1000;
+const ONLINE_FRESHNESS_MS = 4 * 60 * 1000;
+
+function escapeHTML(value = "") {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function safeImageURL(value, fallbackName = "User") {
+    try {
+        const url = new URL(String(value || ""));
+        if (["https:", "http:"].includes(url.protocol)) return url.href;
+    } catch {
+        // Use fallback below.
+    }
+
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=1f2a44&color=ffffff`;
+}
+
+function directChatId(uidA, uidB) {
+    return uidA < uidB ? `${uidA}_${uidB}` : `${uidB}_${uidA}`;
+}
+
+function timestampToDate(value) {
+    if (!value) return null;
+    if (typeof value.toDate === "function") return value.toDate();
+    if (value instanceof Date) return value;
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPresenceDate(user = {}) {
+    return timestampToDate(user.presenceUpdatedAt)
+        || timestampToDate(user.lastSeen)
+        || timestampToDate(user.lastLogin);
+}
+
+function isUserOnline(user = {}) {
+    if (user.presenceState !== "online") return false;
+    const updatedAt = getPresenceDate(user);
+    return Boolean(updatedAt && (Date.now() - updatedAt.getTime()) <= ONLINE_FRESHNESS_MS);
+}
+
+function formatLastSeen(user = {}) {
+    if (isUserOnline(user)) return "Online";
+
+    const date = getPresenceDate(user);
+    if (!date) return "Offline";
+
+    const diffMs = Math.max(0, Date.now() - date.getTime());
+    const minute = 60 * 1000;
+    const hour = 60 * minute;
+    const day = 24 * hour;
+
+    if (diffMs < minute) return "Terakhir dilihat baru saja";
+    if (diffMs < hour) return `Terakhir dilihat ${Math.floor(diffMs / minute)} menit lalu`;
+
+    const time = date.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(".", ":");
+    if (diffMs < day && date.getDate() === new Date().getDate()) {
+        return `Terakhir dilihat hari ini ${time}`;
+    }
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === yesterday.toDateString()) {
+        return `Terakhir dilihat kemarin ${time}`;
+    }
+
+    const dateText = date.toLocaleDateString("id-ID", { day: "2-digit", month: "short" });
+    return `Terakhir dilihat ${dateText}, ${time}`;
+}
+
+async function writePresence(state = "online") {
+    const user = currentUser;
+    if (!user || !isEmailAllowed(user.email)) return;
+
+    const data = {
+        presenceState: state,
+        presenceUpdatedAt: serverTimestamp()
+    };
+
+    if (state === "offline") data.lastSeen = serverTimestamp();
+
+    try {
+        await setDoc(doc(db, "users", user.uid), data, { merge: true });
+    } catch (error) {
+        console.warn("Gagal memperbarui status kehadiran:", error);
+    }
+}
+
+function stopPresenceTracking() {
+    if (presenceHeartbeatTimer) window.clearInterval(presenceHeartbeatTimer);
+    if (directoryClockTimer) window.clearInterval(directoryClockTimer);
+    presenceHeartbeatTimer = null;
+    directoryClockTimer = null;
+}
+
+function startPresenceTracking() {
+    stopPresenceTracking();
+    writePresence("online");
+
+    presenceHeartbeatTimer = window.setInterval(() => {
+        if (navigator.onLine) writePresence("online");
+    }, PRESENCE_HEARTBEAT_MS);
+
+    directoryClockTimer = window.setInterval(renderDirectory, 60 * 1000);
+}
+
+window.addEventListener("online", () => writePresence("online"));
+window.addEventListener("offline", () => writePresence("offline"));
+window.addEventListener("focus", () => writePresence("online"));
+window.addEventListener("pageshow", () => writePresence("online"));
+window.addEventListener("pagehide", () => {
+    void writePresence("offline");
+});
+window.addEventListener("beforeunload", () => {
+    void writePresence("offline");
+});
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") writePresence("online");
 });
 
-// =========================
-// CEK EMAIL WHITELIST
-// =========================
 function isEmailAllowed(email) {
     if (!email) return false;
-
-    return ALLOWED_EMAILS
-        .map(item => item.toLowerCase().trim())
-        .includes(email.toLowerCase().trim());
+    const normalized = email.toLowerCase().trim();
+    return ALLOWED_EMAILS.some((item) => item.toLowerCase().trim() === normalized);
 }
 
-// =========================
-// SET LOGIN PERSISTENCE
-// =========================
-async function prepareAuthPersistence() {
-    await setPersistence(auth, browserLocalPersistence);
+const authLoadingPage = document.getElementById("authLoadingPage");
+let authObserverStarted = false;
+let authInitialStateReceived = false;
+let authRestoreFallbackTimer = null;
+
+const AUTH_RESTORE_TIMEOUT_MS = 6500;
+
+function showAuthLoading() {
+    if (authLoadingPage) authLoadingPage.style.display = "flex";
+    if (loginPage) loginPage.style.display = "none";
+    if (chatPage) chatPage.style.display = "none";
 }
 
-// =========================
-// HANDLE REDIRECT RESULT
-// =========================
-prepareAuthPersistence()
-    .then(() => getRedirectResult(auth))
-    .catch((e) => {
-        console.error("Redirect login error:", e.code, e.message);
-    });
+function hideAuthLoading() {
+    if (authLoadingPage) authLoadingPage.style.display = "none";
+}
 
-// =========================
-// LOGIN GOOGLE
-// =========================
-if (loginBtn) {
-    loginBtn.addEventListener("click", async () => {
-        try {
-            loginBtn.disabled = true;
-            loginBtn.innerHTML = `<i class="fa-brands fa-google"></i> Membuka Google...`;
+function clearAuthRestoreFallback() {
+    if (!authRestoreFallbackTimer) return;
+    window.clearTimeout(authRestoreFallbackTimer);
+    authRestoreFallbackTimer = null;
+}
 
-            await prepareAuthPersistence();
+function showLoginFallback() {
+    hideAuthLoading();
+    if (loginPage) loginPage.style.display = "flex";
+    if (chatPage) chatPage.style.display = "none";
+}
 
-            await signInWithPopup(auth, provider);
+function initializeAuthentication() {
+    if (authObserverStarted) return;
+    authObserverStarted = true;
+    showAuthLoading();
 
-        } catch (e) {
-            console.error("Login Google gagal:", e.code, e.message);
-
-            // Jangan tampilkan alert kalau user cuma menutup popup.
-            if (e.code === "auth/popup-closed-by-user") {
-                console.log("Popup login ditutup user.");
-                return;
-            }
-
-            // Kalau popup diblokir browser, pakai redirect.
-            if (
-                e.code === "auth/popup-blocked" ||
-                e.code === "auth/cancelled-popup-request"
-            ) {
-                await signInWithRedirect(auth, provider);
-                return;
-            }
-
-            alert("Login gagal: " + e.message);
-
-        } finally {
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = `<i class="fa-brands fa-google"></i> Login Google`;
+    // Pasang observer lebih dahulu. Jangan menunggu getRedirectResult(), karena
+    // proses redirect dapat menggantung pada browser/hosting tertentu.
+    onAuthStateChanged(
+        auth,
+        async (user) => {
+            authInitialStateReceived = true;
+            clearAuthRestoreFallback();
+            await handleAuthStateChange(user);
+        },
+        (error) => {
+            console.error("Auth state observer error:", error);
+            authInitialStateReceived = true;
+            clearAuthRestoreFallback();
+            showLoginFallback();
         }
+    );
+
+    // Redirect result diproses di belakang layar dan tidak boleh menahan UI.
+    void getRedirectResult(auth).catch((error) => {
+        console.error("Redirect login error:", error.code, error.message);
     });
-}
 
-// =========================
-// LOGOUT
-// =========================
-if (logoutBtn) {
-    logoutBtn.addEventListener("click", async () => {
-        try {
-            await signOut(auth);
-            location.reload();
-        } catch (e) {
-            console.error("Logout gagal:", e);
-            alert("Logout gagal: " + e.message);
-        }
-    });
-}
-
-// =========================
-// RENDER USER LIST
-// =========================
-function renderUsers(me) {
-    if (!userList) return;
-
-    onSnapshot(collection(db, "users"), (snapshot) => {
-        userList.innerHTML = "";
-
-        const globalDiv = document.createElement("div");
-        globalDiv.className = "group-item";
-        globalDiv.innerHTML = `
-            <div class="icon-btn" style="display:flex;align-items:center;justify-content:center;border-radius:50%;">
-                <i class="fa-solid fa-earth-americas"></i>
-            </div>
-
-            <div class="group-info">
-                <div class="group-name">Global Chat</div>
-                <div class="group-desc">Obrolan Publik</div>
-            </div>
-        `;
-
-        globalDiv.onclick = () => {
-            if (window.openChat) {
-                window.openChat("global");
-            }
-        };
-
-        userList.appendChild(globalDiv);
-
-        snapshot.forEach((d) => {
-            const data = d.data();
-            if (!data || data.uid === me.uid) return;
-
-            const div = document.createElement("div");
-            div.className = "group-item";
-
-            const name = data.name || "User";
-            const photo =
-                data.photo ||
-                "https://ui-avatars.com/api/?name=" + encodeURIComponent(name);
-
-            div.innerHTML = `
-                <img src="${photo}" alt="avatar">
-
-                <div class="group-info">
-                    <div class="group-name">${name}</div>
-                    <div class="group-desc">Private Chat</div>
-                </div>
-
-                <div class="group-time" style="color:#22c55e;">●</div>
-            `;
-
-            div.onclick = () => {
-                if (window.openChat) {
-                    window.openChat(data);
-                }
-            };
-
-            userList.appendChild(div);
+    // authStateReady juga dijalankan tanpa memblokir tampilan.
+    if (typeof auth.authStateReady === "function") {
+        void auth.authStateReady().catch((error) => {
+            console.error("Auth initialization error:", error);
         });
-    }, (error) => {
-        console.error("Gagal mengambil daftar user:", error);
-    });
+    }
+
+    // Pengaman: layar pemulihan tidak boleh tampil selamanya.
+    authRestoreFallbackTimer = window.setTimeout(() => {
+        if (authInitialStateReceived) return;
+
+        console.warn("Pemulihan sesi melewati batas waktu. Menampilkan halaman login.");
+        showLoginFallback();
+
+        // Jika Firebase sudah memiliki user tetapi observer terlambat, buka chat.
+        if (auth.currentUser) {
+            void handleAuthStateChange(auth.currentUser);
+        }
+    }, AUTH_RESTORE_TIMEOUT_MS);
 }
 
-// =========================
-// AUTH STATE
-// =========================
-onAuthStateChanged(auth, async (user) => {
+loginBtn?.addEventListener("click", async () => {
+    try {
+        loginBtn.disabled = true;
+        loginBtn.innerHTML = `<i class="fa-brands fa-google"></i> Membuka Google...`;
+        await signInWithPopup(auth, provider);
+    } catch (error) {
+        console.error("Login Google gagal:", error.code, error.message);
+
+        if (error.code === "auth/popup-closed-by-user") return;
+
+        if (
+            error.code === "auth/popup-blocked" ||
+            error.code === "auth/cancelled-popup-request"
+        ) {
+            await signInWithRedirect(auth, provider);
+            return;
+        }
+
+        alert(`Login gagal: ${error.message}`);
+    } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = `<i class="fa-brands fa-google"></i> Login Google`;
+    }
+});
+
+logoutBtn?.addEventListener("click", async () => {
+    try {
+        await writePresence("offline");
+        await signOut(auth);
+        location.reload();
+    } catch (error) {
+        console.error("Logout gagal:", error);
+        alert(`Logout gagal: ${error.message}`);
+    }
+});
+
+function createGlobalItem() {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "group-item";
+    item.dataset.chatId = "global";
+    item.dataset.kind = "global";
+    item.innerHTML = `
+        <span class="directory-avatar directory-avatar-global">
+            <i class="fa-solid fa-earth-americas"></i>
+        </span>
+        <span class="group-info">
+            <span class="group-name">Global Chat</span>
+            <span class="group-desc">Obrolan Publik</span>
+        </span>
+        <span class="group-time"><i class="fa-solid fa-users"></i></span>
+    `;
+    item.addEventListener("click", () => window.openChat?.("global"));
+    return item;
+}
+
+function createGroupItem(group) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "group-item";
+    item.dataset.chatId = `group_${group.id}`;
+    item.dataset.kind = "group";
+
+    const name = group.name || "Grup Tanpa Nama";
+    const total = Array.isArray(group.memberUids) ? group.memberUids.length : 1;
+    const photo = safeImageURL(group.photo, name);
+
+    item.innerHTML = `
+        <img src="${escapeHTML(photo)}" alt="avatar grup">
+        <span class="group-info">
+            <span class="group-name">${escapeHTML(name)}</span>
+            <span class="group-desc">${total} anggota</span>
+        </span>
+        <span class="group-time"><i class="fa-solid fa-user-group"></i></span>
+    `;
+
+    item.addEventListener("click", () => {
+        window.openChat?.({
+            kind: "group",
+            id: group.id,
+            name,
+            photo,
+            memberUids: group.memberUids || [],
+            createdBy: group.createdBy || ""
+        });
+    });
+
+    return item;
+}
+
+function createUserItem(user) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "group-item";
+    item.dataset.chatId = directChatId(currentUser.uid, user.uid);
+    item.dataset.kind = "private";
+
+    const name = user.name || user.email?.split("@")[0] || "User";
+    const photo = safeImageURL(user.photo, name);
+    const online = isUserOnline(user);
+    const presenceLabel = formatLastSeen(user);
+
+    item.innerHTML = `
+        <img src="${escapeHTML(photo)}" alt="avatar">
+        <span class="group-info">
+            <span class="group-name">${escapeHTML(name)}</span>
+            <span class="group-desc user-presence-text ${online ? "is-online" : "is-offline"}">${escapeHTML(presenceLabel)}</span>
+        </span>
+        <span class="group-time online-indicator ${online ? "is-online" : "is-offline"}" title="${escapeHTML(presenceLabel)}">●</span>
+    `;
+
+    item.addEventListener("click", () => {
+        window.openChat?.({
+            kind: "private",
+            uid: user.uid,
+            name,
+            photo,
+            presenceState: user.presenceState || "offline",
+            presenceUpdatedAt: user.presenceUpdatedAt || null,
+            lastSeen: user.lastSeen || null,
+            lastLogin: user.lastLogin || null
+        });
+    });
+
+    return item;
+}
+
+function matchesSearch(...parts) {
+    const queryText = sidebarSearchInput?.value.trim().toLowerCase() || "";
+    if (!queryText) return true;
+    return parts.join(" ").toLowerCase().includes(queryText);
+}
+
+function renderDirectory() {
+    if (!userList || !currentUser) return;
+
+    userList.innerHTML = "";
+    let visibleCount = 0;
+
+    if (directoryMode === "all" || directoryMode === "groups") {
+        if (matchesSearch("Global Chat", "Obrolan Publik")) {
+            userList.appendChild(createGlobalItem());
+            visibleCount += 1;
+        }
+
+        directoryGroups
+            .slice()
+            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id"))
+            .forEach((group) => {
+                if (!matchesSearch(group.name || "", "grup", "group")) return;
+                userList.appendChild(createGroupItem(group));
+                visibleCount += 1;
+            });
+    }
+
+    if (directoryMode === "all") {
+        directoryUsers
+            .filter((user) => user.uid !== currentUser.uid)
+            .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id"))
+            .forEach((user) => {
+                if (!matchesSearch(user.name || "", user.email || "", "private chat")) return;
+                userList.appendChild(createUserItem(user));
+                visibleCount += 1;
+            });
+    }
+
+    if (!visibleCount) {
+        const empty = document.createElement("div");
+        empty.className = "directory-empty";
+        empty.innerHTML = `<i class="fa-regular fa-folder-open"></i><span>Tidak ada hasil.</span>`;
+        userList.appendChild(empty);
+    }
+
+    userList.querySelector(`[data-chat-id="${CSS.escape(activeChatId)}"]`)?.classList.add("active");
+
+    window.chatDirectoryUsers = directoryUsers.slice();
+    window.chatDirectoryGroups = directoryGroups.slice();
+    window.chatDirectoryUserCount = directoryUsers.length;
+    window.dispatchEvent(new CustomEvent("chat-directory-updated"));
+}
+
+sidebarSearchInput?.addEventListener("input", renderDirectory);
+
+groupsBtn?.addEventListener("click", () => {
+    directoryMode = directoryMode === "groups" ? "all" : "groups";
+    groupsBtn.classList.toggle("active", directoryMode === "groups");
+    groupsBtn.setAttribute("aria-pressed", String(directoryMode === "groups"));
+    renderDirectory();
+});
+
+window.setActiveSidebarChat = (chatId) => {
+    activeChatId = chatId || "global";
+    userList?.querySelectorAll(".group-item").forEach((item) => {
+        item.classList.toggle("active", item.dataset.chatId === activeChatId);
+    });
+};
+
+function startDirectoryListeners(user) {
+    unsubscribeUsers?.();
+    unsubscribeGroups?.();
+
+    unsubscribeUsers = onSnapshot(
+        collection(db, "users"),
+        (snapshot) => {
+            directoryUsers = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+            renderDirectory();
+        },
+        (error) => {
+            console.error("Gagal mengambil daftar user:", error);
+            directoryUsers = [{
+                uid: user.uid,
+                name: user.displayName || user.email?.split("@")[0] || "User",
+                email: user.email || "",
+                photo: user.photoURL || ""
+            }];
+            renderDirectory();
+        }
+    );
+
+    const groupsQuery = query(
+        collection(db, "groups"),
+        where("memberUids", "array-contains", user.uid)
+    );
+
+    unsubscribeGroups = onSnapshot(
+        groupsQuery,
+        (snapshot) => {
+            directoryGroups = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+            renderDirectory();
+        },
+        (error) => {
+            console.error("Gagal mengambil daftar grup:", error);
+            directoryGroups = [];
+            renderDirectory();
+        }
+    );
+}
+
+async function handleAuthStateChange(user) {
+    currentUser = user;
+    hideAuthLoading();
+
     if (!user) {
+        stopPresenceTracking();
+        unsubscribeUsers?.();
+        unsubscribeGroups?.();
         if (loginPage) loginPage.style.display = "flex";
         if (chatPage) chatPage.style.display = "none";
         return;
@@ -209,45 +511,42 @@ onAuthStateChanged(auth, async (user) => {
 
     if (!isEmailAllowed(user.email)) {
         alert("Akses ditolak: Email Anda tidak terdaftar!");
-
         await signOut(auth);
-
         if (loginPage) loginPage.style.display = "flex";
         if (chatPage) chatPage.style.display = "none";
-
         return;
     }
+
+    // The authenticated UI is shown immediately after Firebase restores the
+    // session. A temporary Firestore write problem must not look like logout.
+    if (loginPage) loginPage.style.display = "none";
+    if (chatPage) chatPage.style.display = "flex";
+
+    if (myName) myName.textContent = user.displayName || user.email?.split("@")[0] || "User";
+    if (myPhoto) myPhoto.src = safeImageURL(user.photoURL, user.displayName || user.email || "User");
+
+    startPresenceTracking();
+    startDirectoryListeners(user);
 
     try {
         await setDoc(
             doc(db, "users", user.uid),
             {
                 uid: user.uid,
-                name: user.displayName || user.email.split("@")[0],
-                email: user.email,
-                photo: user.photoURL,
-                lastLogin: new Date()
+                name: user.displayName || user.email?.split("@")[0] || "User",
+                email: user.email || "",
+                photo: user.photoURL || "",
+                lastLogin: serverTimestamp(),
+                presenceState: "online",
+                presenceUpdatedAt: serverTimestamp()
             },
             { merge: true }
         );
-    } catch (e) {
-        console.error("Gagal menyimpan user:", e);
-        alert("Gagal menyimpan data user: " + e.message);
-        return;
+    } catch (error) {
+        // Keep the existing Firebase Auth session. Presence can retry on the
+        // next heartbeat instead of forcing the user back to the login page.
+        console.error("Gagal menyinkronkan data user:", error);
     }
+}
 
-    if (loginPage) loginPage.style.display = "none";
-    if (chatPage) chatPage.style.display = "flex";
-
-    if (myName) {
-        myName.innerText = user.displayName || user.email.split("@")[0];
-    }
-
-    if (myPhoto) {
-        myPhoto.src =
-            user.photoURL ||
-            "https://ui-avatars.com/api/?name=" + encodeURIComponent(user.email);
-    }
-
-    renderUsers(user);
-});
+initializeAuthentication();

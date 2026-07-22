@@ -2,18 +2,54 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <title>CHAT DDT</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <script>
+    (() => {
+        const APP_PATH = "/chat-app-index.html/";
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", async () => {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    await Promise.all(
+                        registrations
+                            .filter((registration) => {
+                                try {
+                                    return new URL(registration.scope).pathname.startsWith(APP_PATH);
+                                } catch {
+                                    return false;
+                                }
+                            })
+                            .map((registration) => registration.unregister())
+                    );
+                } catch (error) {
+                    console.warn("Service worker cleanup gagal:", error);
+                }
+            });
+        }
+    })();
+    </script>
+    <link rel="stylesheet" href="style.css?v=20260723-session-restore-fix-v8">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
 
-<div id="loginPage">
+<div id="authLoadingPage" class="auth-loading-page">
+    <div class="auth-loading-card">
+        <span class="auth-loading-spinner" aria-hidden="true"></span>
+        <strong>Memulihkan sesi...</strong>
+        <small>Mengecek sesi tersimpan, maksimal beberapa detik</small>
+    </div>
+</div>
+
+<div id="loginPage" style="display:none;">
     <div class="login-card">
         <h1>CHAT DDT</h1>
         <p>Realtime Group Chat</p>
-        <button id="loginBtn">
+        <button id="loginBtn" type="button">
             <i class="fa-brands fa-google"></i>
             Login Google
         </button>
@@ -21,119 +57,301 @@
 </div>
 
 <div id="chatPage" style="display:none;">
-
     <aside class="sidebar">
-
         <div class="profile-card">
             <div class="profile-left">
                 <img id="myPhoto" src="https://ui-avatars.com/api/?name=DDT" class="profile-avatar" alt="My Profile">
-                <div>
+                <div class="profile-copy">
                     <div id="myName" class="profile-name">Loading...</div>
                     <div class="online-status">
                         <span class="dot"></span>
-                        <span class="dot dot-soft"></span>
                         Online
                     </div>
                 </div>
             </div>
 
             <div class="profile-actions">
-                <button class="icon-btn" title="Setting">
+                <button id="profileSettingsBtn" class="icon-btn" title="Pengaturan profil" type="button">
                     <i class="fa-solid fa-gear"></i>
                 </button>
-                <button id="logoutBtn" class="icon-btn" title="Logout">
+                <button id="logoutBtn" class="icon-btn" title="Logout" type="button">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </button>
             </div>
         </div>
 
         <div class="sidebar-search-wrap">
-            <div class="search-box">
+            <label class="search-box" for="sidebarSearchInput">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" placeholder="Cari user atau grup...">
-            </div>
+                <input id="sidebarSearchInput" type="search" placeholder="Cari user atau grup..." autocomplete="off">
+            </label>
         </div>
 
-        <button class="groups-btn">
+        <button id="groupsBtn" class="groups-btn" type="button" aria-pressed="false">
             <i class="fa-regular fa-message"></i>
-            Groups
+            <span class="button-label">Groups</span>
         </button>
 
-        <button class="create-group-btn">
+        <button id="createGroupBtn" class="create-group-btn" type="button">
             <i class="fa-solid fa-plus"></i>
-            Buat Grup Baru
+            <span class="button-label">Buat Grup Baru</span>
         </button>
 
-        <div id="userList" class="group-list"></div>
-
+        <div id="userList" class="group-list" aria-live="polite"></div>
     </aside>
 
     <div class="sidebar-divider">
-        <button class="collapse-handle" title="Collapse sidebar">
+        <button id="collapseSidebarBtn" class="collapse-handle" title="Ringkas sidebar" type="button" aria-expanded="true">
             <i class="fa-solid fa-chevron-left"></i>
         </button>
     </div>
 
     <main class="chat">
-
         <div class="chat-header">
             <div class="chat-header-left">
-                <button id="backToSidebarBtn" class="icon-btn back-btn" style="display: none;">
+                <button id="backToSidebarBtn" class="icon-btn back-btn" style="display:none;" type="button" title="Kembali">
                     <i class="fa-solid fa-arrow-left"></i>
                 </button>
 
-                <img src="https://ui-avatars.com/api/?name=DDT" class="chat-group-avatar" alt="Group Avatar">
-                <div>
-                    <div class="group-title" id="roomName">Room Chat</div>
-                    <div class="group-members" id="roomMembers">0 anggota</div>
+                <img id="chatGroupAvatar" src="https://ui-avatars.com/api/?name=DDT" class="chat-group-avatar" alt="Group Avatar">
+                <div class="room-copy">
+                    <div class="group-title" id="roomName">Global Chat</div>
+                    <div class="group-members" id="roomMembers">Obrolan Publik</div>
                 </div>
             </div>
 
             <div class="chat-header-right">
-                <div class="message-search">
+                <div id="messageSearchWrap" class="message-search">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" placeholder="Cari pesan di chat ini...">
+                    <input id="messageSearchInput" type="search" placeholder="Cari pesan di chat ini..." autocomplete="off">
+                    <span id="messageSearchStatus" class="message-search-status"></span>
+                    <button id="clearMessageSearchBtn" class="inline-clear-btn" type="button" title="Hapus pencarian" hidden>
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
                 </div>
 
-                <button class="icon-btn" title="Cari">
+                <button id="toggleMessageSearchBtn" class="icon-btn" title="Cari pesan" type="button" aria-expanded="false">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </button>
-                <button class="icon-btn" title="Setting">
+                <button id="chatSettingsBtn" class="icon-btn" title="Pengaturan chat" type="button">
                     <i class="fa-solid fa-gear"></i>
                 </button>
             </div>
         </div>
 
-        <div id="messages"></div>
+        <div id="messages" aria-live="polite"></div>
 
-        <button id="scrollBottomBtn" class="scroll-bottom-btn">
+        <button id="scrollBottomBtn" class="scroll-bottom-btn" type="button">
             <i class="fa-solid fa-chevron-down"></i>
             Ke Bawah
         </button>
 
-        <div class="input-box">
-            <button class="bottom-btn">😊</button>
+        <div id="emojiPicker" class="emoji-picker" hidden aria-label="Pilih emotikon"></div>
 
-            <input type="text" id="messageInput" placeholder="Ketik pesan... (Ctrl+V untuk paste media)">
+        <div class="composer-wrap">
+            <div id="replyPreview" class="reply-preview" hidden>
+                <div class="reply-preview-line"></div>
+                <div class="reply-preview-content">
+                    <div class="reply-preview-label">
+                        Membalas <strong id="replyPreviewName">User</strong>
+                    </div>
+                    <div id="replyPreviewText" class="reply-preview-text"></div>
+                </div>
+                <button id="cancelReplyBtn" class="cancel-reply-btn" type="button" title="Batalkan balasan">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
 
-            <button class="bottom-btn" title="Gambar">
-                <i class="fa-regular fa-image"></i>
+            <div id="uploadStatus" class="upload-status" hidden>
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span id="uploadStatusText">Mengupload...</span>
+                <div class="upload-progress-track">
+                    <div id="uploadProgressBar" class="upload-progress-bar"></div>
+                </div>
+            </div>
+
+            <div class="input-box">
+                <button id="emojiBtn" class="bottom-btn" title="Emotikon" type="button" aria-expanded="false" aria-controls="emojiPicker">😊</button>
+                <input type="text" id="messageInput" placeholder="Ketik pesan... (Ctrl+V untuk paste gambar)" autocomplete="off">
+                <button id="imageBtn" class="bottom-btn" title="Upload gambar" type="button">
+                    <i class="fa-regular fa-image"></i>
+                </button>
+                <button id="fileBtn" class="bottom-btn" title="Upload file" type="button">
+                    <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                </button>
+                <button id="sendBtn" class="send-btn" title="Kirim" type="button">
+                    <i class="fa-regular fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+
+        <input id="imageInput" type="file" accept="image/*" hidden>
+        <input id="fileInput" type="file" hidden>
+    </main>
+</div>
+
+<div id="modalBackdrop" class="modal-backdrop" hidden></div>
+
+<section id="createGroupModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="createGroupTitle">
+    <form id="createGroupForm" class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="createGroupTitle">Buat Grup Baru</h2>
+                <p>Pilih nama dan anggota grup.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
             </button>
-            <button class="bottom-btn" title="Upload">
-                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+        </div>
+        <div class="modal-body">
+            <label class="field-label" for="newGroupName">Nama grup</label>
+            <input id="newGroupName" class="modal-input" type="text" maxlength="50" placeholder="Contoh: Tim DDT" required>
+            <div class="field-label member-label-row">
+                <span>Anggota</span>
+                <button id="selectAllMembersBtn" class="text-btn" type="button">Pilih semua</button>
+            </div>
+            <div id="groupMemberList" class="member-picker"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="secondary-btn" type="button" data-close-modal>Batal</button>
+            <button id="saveGroupBtn" class="primary-btn" type="submit">
+                <i class="fa-solid fa-user-group"></i>
+                Buat Grup
             </button>
-            <button id="sendBtn" class="send-btn" title="Kirim">
-                <i class="fa-regular fa-paper-plane"></i>
+        </div>
+    </form>
+</section>
+
+<section id="profileSettingsModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="profileSettingsTitle">
+    <form id="profileSettingsForm" class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="profileSettingsTitle">Pengaturan Profil</h2>
+                <p>Atur nama dan tampilan aplikasi.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <label class="field-label" for="profileDisplayName">Nama tampilan</label>
+            <input id="profileDisplayName" class="modal-input" type="text" maxlength="40" required>
+            <label class="field-label" for="profileEmail">Email</label>
+            <input id="profileEmail" class="modal-input" type="email" readonly>
+            <label class="switch-row">
+                <span>
+                    <strong>Mode pesan ringkas</strong>
+                    <small>Mengurangi jarak antar pesan.</small>
+                </span>
+                <input id="compactMessagesToggle" type="checkbox">
+                <span class="switch-control"></span>
+            </label>
+        </div>
+        <div class="modal-footer">
+            <button class="secondary-btn" type="button" data-close-modal>Batal</button>
+            <button id="saveProfileBtn" class="primary-btn" type="submit">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Simpan
+            </button>
+        </div>
+    </form>
+</section>
+
+<section id="chatSettingsModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="chatSettingsTitle">
+    <div class="modal-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="chatSettingsTitle">Informasi Chat</h2>
+                <p id="chatSettingsSubtitle">Detail ruang aktif.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="info-row">
+                <span>Nama</span>
+                <strong id="settingsRoomName">Global Chat</strong>
+            </div>
+            <div class="info-row">
+                <span>Keterangan</span>
+                <strong id="settingsRoomMembers">Obrolan Publik</strong>
+            </div>
+            <div class="copy-field">
+                <input id="settingsRoomId" class="modal-input" type="text" readonly>
+                <button id="copyRoomIdBtn" class="secondary-btn" type="button" title="Salin ID ruang">
+                    <i class="fa-regular fa-copy"></i>
+                </button>
+            </div>
+            <button id="clearRoomSearchBtn" class="wide-secondary-btn" type="button">
+                <i class="fa-solid fa-eraser"></i>
+                Bersihkan pencarian pesan
+            </button>
+        </div>
+        <div class="modal-footer">
+            <button class="primary-btn" type="button" data-close-modal>Selesai</button>
+        </div>
+    </div>
+</section>
+
+<section id="imagePreviewModal" class="app-modal image-preview-modal" hidden role="dialog" aria-modal="true" aria-labelledby="imagePreviewTitle">
+    <div class="modal-card image-preview-card">
+        <div class="modal-header image-preview-header">
+            <div class="image-preview-heading">
+                <h2 id="imagePreviewTitle">Preview Gambar</h2>
+                <p id="imagePreviewMeta">Klik di luar untuk menutup.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
 
-    </main>
+        <div class="image-preview-toolbar" aria-label="Kontrol preview gambar">
+            <button id="imagePreviewPrevBtn" class="preview-tool-btn" type="button" title="Gambar sebelumnya">
+                <i class="fa-solid fa-chevron-left"></i>
+                <span class="preview-tool-label">Sebelumnya</span>
+            </button>
 
-</div>
+            <div class="preview-zoom-controls">
+                <button id="imagePreviewZoomOutBtn" class="preview-tool-btn icon-only" type="button" title="Perkecil">
+                    <i class="fa-solid fa-minus"></i>
+                </button>
+                <button id="imagePreviewResetBtn" class="preview-scale-btn" type="button" title="Reset zoom">
+                    <span id="imagePreviewScaleLabel">100%</span>
+                </button>
+                <button id="imagePreviewZoomInBtn" class="preview-tool-btn icon-only" type="button" title="Perbesar">
+                    <i class="fa-solid fa-plus"></i>
+                </button>
+            </div>
 
-<script type="module" src="firebase.js"></script>
-<script type="module" src="auth.js"></script>
-<script type="module" src="app.js"></script>
+            <div class="preview-position" aria-live="polite">
+                <span id="imagePreviewCounter">1 / 1</span>
+            </div>
 
+            <button id="imagePreviewNextBtn" class="preview-tool-btn" type="button" title="Gambar berikutnya">
+                <span class="preview-tool-label">Berikutnya</span>
+                <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+
+        <div id="imagePreviewStage" class="image-preview-stage">
+            <div id="imagePreviewPanArea" class="image-preview-pan-area">
+                <div id="imagePreviewCanvas" class="image-preview-canvas">
+                    <img id="imagePreviewFull" class="image-preview-full" src="" alt="Preview gambar" draggable="false">
+                </div>
+            </div>
+        </div>
+
+        <div class="image-preview-mobile-hint">
+            Geser kiri/kanan untuk pindah gambar. Gunakan tombol +/− untuk zoom.
+        </div>
+    </div>
+</section>
+
+<div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+<script type="module" src="firebase.js?v=20260723-session-restore-fix-v8"></script>
+<script type="module" src="auth.js?v=20260723-session-restore-fix-v8"></script>
+<script type="module" src="app.js?v=20260723-session-restore-fix-v8"></script>
 </body>
 </html>
