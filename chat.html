@@ -9,31 +9,13 @@
 <body>
     <p>Mengarahkan ke CHAT DDT...</p>
     <script>
-    (async () => {
+    (() => {
         const APP_PATH = "/chat-app-index.html/";
-        try {
-            if ("serviceWorker" in navigator) {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                await Promise.all(
-                    registrations
-                        .filter((registration) => {
-                            try {
-                                return new URL(registration.scope).pathname.startsWith(APP_PATH);
-                            } catch {
-                                return false;
-                            }
-                        })
-                        .map((registration) => registration.unregister())
-                );
-            }
-        } catch (error) {
-            console.warn("Service worker cleanup gagal:", error);
-        }
-        location.replace(`${APP_PATH}?reset=20260723-notification-badges-v13`);
+        location.replace(`${APP_PATH}?source=redirect&v=20260728-mobile-keyboard-themes-v17`);
     })();
     </script>
     <noscript>
-        <meta http-equiv="refresh" content="0;url=/chat-app-index.html/?reset=20260723-notification-badges-v13">
+        <meta http-equiv="refresh" content="0;url=/chat-app-index.html/?source=redirect&amp;v=20260728-mobile-keyboard-themes-v17">
     </noscript>
 </body>
 </html>

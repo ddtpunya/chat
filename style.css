@@ -3803,3 +3803,271 @@ canvas {
         padding-right: 7px !important;
     }
 }
+
+
+/* =========================================================
+   MOBILE KEYBOARD DOCK + EYE-COMFORT THEMES — V17
+   ========================================================= */
+.theme-setting-block {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(148, 163, 184, .07);
+    border: 1px solid rgba(148, 163, 184, .13);
+}
+
+.theme-setting-block .field-label {
+    display: block;
+    margin-bottom: 8px;
+}
+
+.theme-select-wrap {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-radius: 12px;
+    background: #101b2d;
+    border: 1px solid rgba(96, 165, 250, .22);
+}
+
+.theme-select-wrap > i {
+    color: #89b7f7;
+}
+
+.modal-select {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+    border: 0;
+    outline: 0;
+    color: #edf5ff;
+    background: transparent;
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.modal-select option {
+    color: #111827;
+    background: #f8fafc;
+}
+
+.field-help {
+    display: block;
+    margin-top: 8px;
+    color: #94a6c0;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+body.mobile-theme-midnight {
+    --mobile-app-bg: #05080f;
+    --mobile-sidebar-a: #10182b;
+    --mobile-sidebar-b: #17213a;
+    --mobile-panel: #101a2a;
+    --mobile-panel-strong: #0b1320;
+    --mobile-input: #182235;
+    --mobile-line: rgba(113, 151, 201, .28);
+    --mobile-accent: #5a91db;
+    --mobile-accent-strong: #3974c5;
+    --mobile-muted: #9aaac0;
+}
+
+body.mobile-theme-ocean {
+    --mobile-app-bg: #061216;
+    --mobile-sidebar-a: #0b2026;
+    --mobile-sidebar-b: #123039;
+    --mobile-panel: #0c2229;
+    --mobile-panel-strong: #07191e;
+    --mobile-input: #143038;
+    --mobile-line: rgba(94, 170, 176, .27);
+    --mobile-accent: #4c9ca4;
+    --mobile-accent-strong: #337b83;
+    --mobile-muted: #9ab8ba;
+}
+
+body.mobile-theme-forest {
+    --mobile-app-bg: #09130f;
+    --mobile-sidebar-a: #13251f;
+    --mobile-sidebar-b: #1a3028;
+    --mobile-panel: #13251f;
+    --mobile-panel-strong: #0d1b16;
+    --mobile-input: #1b3029;
+    --mobile-line: rgba(112, 168, 139, .26);
+    --mobile-accent: #609b7c;
+    --mobile-accent-strong: #477b61;
+    --mobile-muted: #a2b7ac;
+}
+
+body.mobile-theme-graphite {
+    --mobile-app-bg: #111316;
+    --mobile-sidebar-a: #1c1f24;
+    --mobile-sidebar-b: #25292f;
+    --mobile-panel: #1b1f24;
+    --mobile-panel-strong: #15181c;
+    --mobile-input: #272c33;
+    --mobile-line: rgba(160, 170, 184, .22);
+    --mobile-accent: #7e8ea4;
+    --mobile-accent-strong: #637287;
+    --mobile-muted: #aeb5bf;
+}
+
+body.mobile-theme-dusk {
+    --mobile-app-bg: #120e18;
+    --mobile-sidebar-a: #211a2d;
+    --mobile-sidebar-b: #2b2239;
+    --mobile-panel: #211a2b;
+    --mobile-panel-strong: #17121e;
+    --mobile-input: #30263b;
+    --mobile-line: rgba(163, 132, 184, .25);
+    --mobile-accent: #8f76a6;
+    --mobile-accent-strong: #715986;
+    --mobile-muted: #b4a8be;
+}
+
+@media (max-width: 768px) {
+    body[data-mobile-theme] {
+        background: var(--mobile-app-bg) !important;
+    }
+
+    body[data-mobile-theme] #chatPage,
+    body[data-mobile-theme] .chat,
+    body[data-mobile-theme] #messages {
+        background: var(--mobile-app-bg) !important;
+    }
+
+    body[data-mobile-theme] .sidebar {
+        background: linear-gradient(180deg, var(--mobile-sidebar-a), var(--mobile-sidebar-b)) !important;
+    }
+
+    body[data-mobile-theme] .profile-card,
+    body[data-mobile-theme] .chat-header,
+    body[data-mobile-theme] .composer-wrap,
+    body[data-mobile-theme] .input-box,
+    body[data-mobile-theme] .modal-card {
+        background: var(--mobile-panel-strong) !important;
+        border-color: var(--mobile-line) !important;
+    }
+
+    body[data-mobile-theme] .sidebar-search-wrap,
+    body[data-mobile-theme] .group-list {
+        background: transparent !important;
+    }
+
+    body[data-mobile-theme] .search-box,
+    body[data-mobile-theme] #messageInput,
+    body[data-mobile-theme] .message-search,
+    body[data-mobile-theme] .theme-select-wrap,
+    body[data-mobile-theme] .modal-input {
+        background: var(--mobile-input) !important;
+        border-color: var(--mobile-line) !important;
+    }
+
+    body[data-mobile-theme] .group-item:hover,
+    body[data-mobile-theme] .group-item.active,
+    body[data-mobile-theme] .settings-menu-btn,
+    body[data-mobile-theme] .switch-row,
+    body[data-mobile-theme] .theme-setting-block {
+        background: color-mix(in srgb, var(--mobile-panel) 88%, white 12%) !important;
+        border-color: var(--mobile-line) !important;
+    }
+
+    body[data-mobile-theme] .icon-btn,
+    body[data-mobile-theme] .bottom-btn,
+    body[data-mobile-theme] .groups-btn,
+    body[data-mobile-theme] .create-group-btn,
+    body[data-mobile-theme] .primary-btn,
+    body[data-mobile-theme] .send-btn {
+        background: linear-gradient(180deg, var(--mobile-accent), var(--mobile-accent-strong)) !important;
+        border-color: color-mix(in srgb, var(--mobile-accent) 65%, white 20%) !important;
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--mobile-accent-strong) 30%, transparent) !important;
+    }
+
+    body[data-mobile-theme] .group-desc,
+    body[data-mobile-theme] .group-members,
+    body[data-mobile-theme] .message-time,
+    body[data-mobile-theme] .attachment-caption,
+    body[data-mobile-theme] .field-help,
+    body[data-mobile-theme] .settings-menu-copy small {
+        color: var(--mobile-muted) !important;
+    }
+
+    /* Grid guarantees that the composer owns the last visible row. */
+    #chatPage .chat {
+        grid-template-rows: auto minmax(0, 1fr) auto !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        align-content: stretch !important;
+    }
+
+    #chatPage.mobile-chat-open .chat {
+        display: grid !important;
+    }
+
+    .chat-header {
+        grid-row: 1 !important;
+        min-height: 0 !important;
+    }
+
+    #messages {
+        grid-row: 2 !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        scroll-padding-bottom: 14px;
+    }
+
+    .composer-wrap {
+        grid-row: 3 !important;
+        align-self: end !important;
+        min-height: 0 !important;
+        max-height: min(42vh, 240px);
+        overflow: visible !important;
+    }
+
+    .scroll-bottom-btn,
+    .emoji-picker {
+        position: absolute !important;
+    }
+
+    /* During keyboard animation Safari can report a panned viewport offset.
+       Keeping the active chat at zero prevents the composer from being shifted
+       below the visible keyboard edge. */
+    body.mobile-composer-focused #chatPage,
+    body.mobile-keyboard-open #chatPage {
+        top: 0 !important;
+        left: 0 !important;
+        width: var(--visual-width, 100vw) !important;
+        height: var(--visual-height, 100svh) !important;
+        max-height: var(--visual-height, 100svh) !important;
+    }
+
+    body.mobile-composer-focused .chat,
+    body.mobile-keyboard-open .chat {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+    }
+
+    body.mobile-composer-focused .composer-wrap,
+    body.mobile-keyboard-open .composer-wrap {
+        padding-bottom: 0 !important;
+        margin-bottom: 0 !important;
+    }
+
+    body.mobile-composer-focused #messages,
+    body.mobile-keyboard-open #messages {
+        padding-bottom: 10px !important;
+    }
+
+    body.mobile-keyboard-open .chat-header {
+        min-height: 50px !important;
+        height: 50px !important;
+    }
+
+    body.mobile-keyboard-open .composer-wrap .input-box,
+    body.mobile-keyboard-open .input-box {
+        height: 54px !important;
+        min-height: 54px !important;
+    }
+}

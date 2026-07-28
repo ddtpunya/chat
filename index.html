@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260723-safari-100-percent-fit-v16">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260723-safari-100-percent-fit-v16">
+    <link rel="manifest" href="manifest.webmanifest?v=20260728-mobile-keyboard-themes-v17">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260728-mobile-keyboard-themes-v17">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -27,12 +27,15 @@
             const height = Math.max(1, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
             const offsetLeft = Math.max(0, Math.round(viewport?.offsetLeft || 0));
             const offsetTop = Math.max(0, Math.round(viewport?.offsetTop || 0));
+            const layoutHeight = Math.max(height, Math.round(window.innerHeight || height));
+            const viewportBottomGap = Math.max(0, layoutHeight - height - offsetTop);
 
             const root = document.documentElement;
             root.style.setProperty("--visual-width", `${width}px`);
             root.style.setProperty("--visual-height", `${height}px`);
             root.style.setProperty("--visual-left", `${offsetLeft}px`);
             root.style.setProperty("--visual-top", `${offsetTop}px`);
+            root.style.setProperty("--visual-bottom-gap", `${viewportBottomGap}px`);
 
             // Compatibility variables used by previous versions.
             root.style.setProperty("--app-width", `${width}px`);
@@ -66,13 +69,13 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260723-safari-100-percent-fit-v16", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260728-mobile-keyboard-themes-v17", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260723-safari-100-percent-fit-v16">
+    <link rel="stylesheet" href="style.css?v=20260728-mobile-keyboard-themes-v17">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -352,6 +355,21 @@
                 <i class="fa-solid fa-chevron-right settings-menu-arrow"></i>
             </button>
 
+            <div class="theme-setting-block">
+                <label class="field-label" for="mobileThemeSelect">Tema tampilan mobile</label>
+                <div class="theme-select-wrap">
+                    <i class="fa-solid fa-palette" aria-hidden="true"></i>
+                    <select id="mobileThemeSelect" class="modal-select">
+                        <option value="midnight">Midnight Blue</option>
+                        <option value="ocean">Ocean Calm</option>
+                        <option value="forest">Forest Soft</option>
+                        <option value="graphite">Graphite Dark</option>
+                        <option value="dusk">Dusk Purple</option>
+                    </select>
+                </div>
+                <small class="field-help">Semua tema dibuat gelap dan lembut agar lebih nyaman digunakan lama.</small>
+            </div>
+
             <label class="switch-row">
                 <span>
                     <strong>Mode pesan ringkas</strong>
@@ -527,8 +545,8 @@
 
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-<script type="module" src="firebase.js?v=20260723-safari-100-percent-fit-v16"></script>
-<script type="module" src="auth.js?v=20260723-safari-100-percent-fit-v16"></script>
-<script type="module" src="app.js?v=20260723-safari-100-percent-fit-v16"></script>
+<script type="module" src="firebase.js?v=20260728-mobile-keyboard-themes-v17"></script>
+<script type="module" src="auth.js?v=20260728-mobile-keyboard-themes-v17"></script>
+<script type="module" src="app.js?v=20260728-mobile-keyboard-themes-v17"></script>
 </body>
 </html>

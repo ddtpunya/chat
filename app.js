@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260723-safari-100-percent-fit-v16";
+import { auth, db, storage } from "./firebase.js?v=20260728-mobile-keyboard-themes-v17";
 import {
     collection,
     addDoc,
@@ -21,14 +21,43 @@ import {
     getDownloadURL
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-storage.js";
 
+let responsiveViewportFrame = 0;
+let stableMobileViewportHeight = 0;
+let composerSettleTimers = [];
+
+function isMobileViewportWidth(width = window.innerWidth) {
+    return Number(width) <= 768;
+}
+
+function isTextEntryElement(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    return element.matches('input, textarea, select, [contenteditable="true"]');
+}
+
+function isComposerInputFocused() {
+    return document.activeElement?.id === "messageInput";
+}
+
 function syncResponsiveViewport() {
     const viewport = window.visualViewport;
     const viewportHeight = Math.max(1, Math.round(viewport?.height || window.innerHeight || document.documentElement.clientHeight));
     const viewportWidth = Math.max(1, Math.round(viewport?.width || window.innerWidth || document.documentElement.clientWidth));
     const viewportTop = Math.max(0, Math.round(viewport?.offsetTop || 0));
     const viewportLeft = Math.max(0, Math.round(viewport?.offsetLeft || 0));
-    const layoutHeight = Math.max(viewportHeight, Math.round(window.innerHeight || viewportHeight));
-    const keyboardGap = Math.max(0, layoutHeight - viewportHeight);
+    const focusedEntry = isTextEntryElement(document.activeElement);
+    const mobile = isMobileViewportWidth(viewportWidth);
+
+    if (mobile && (!focusedEntry || viewportHeight > stableMobileViewportHeight)) {
+        stableMobileViewportHeight = Math.max(stableMobileViewportHeight, viewportHeight);
+    }
+
+    if (!stableMobileViewportHeight) {
+        stableMobileViewportHeight = viewportHeight;
+    }
+
+    const keyboardReduction = Math.max(0, stableMobileViewportHeight - viewportHeight);
+    const keyboardOpen = mobile && focusedEntry && keyboardReduction > 55;
+    const composerFocused = mobile && isComposerInputFocused();
 
     const root = document.documentElement;
     root.style.setProperty("--visual-height", `${viewportHeight}px`);
@@ -37,15 +66,45 @@ function syncResponsiveViewport() {
     root.style.setProperty("--visual-left", `${viewportLeft}px`);
     root.style.setProperty("--app-height", `${viewportHeight}px`);
     root.style.setProperty("--app-width", `${viewportWidth}px`);
-    document.body?.classList.toggle("mobile-keyboard-open", viewportWidth <= 768 && keyboardGap > 100);
+    root.style.setProperty("--keyboard-reduction", `${keyboardReduction}px`);
+
+    document.body?.classList.toggle("mobile-keyboard-open", keyboardOpen);
+    document.body?.classList.toggle("mobile-composer-focused", composerFocused);
 }
 
-let responsiveViewportFrame = 0;
+function settleMobileComposer({ forceBottom = true } = {}) {
+    composerSettleTimers.forEach((timer) => window.clearTimeout(timer));
+    composerSettleTimers = [];
+
+    if (!isMobileViewportWidth(window.visualViewport?.width || window.innerWidth)) return;
+
+    [0, 60, 150, 280, 480].forEach((delay) => {
+        const timer = window.setTimeout(() => {
+            syncResponsiveViewport();
+
+            const chatPage = document.getElementById("chatPage");
+            const messageList = document.getElementById("messages");
+            if (!chatPage?.classList.contains("mobile-chat-open") || !messageList) return;
+
+            if (forceBottom) {
+                messageList.scrollTop = messageList.scrollHeight;
+                requestAnimationFrame(() => {
+                    messageList.scrollTop = messageList.scrollHeight;
+                });
+            }
+        }, delay);
+        composerSettleTimers.push(timer);
+    });
+}
+
 function scheduleResponsiveViewport() {
     if (responsiveViewportFrame) cancelAnimationFrame(responsiveViewportFrame);
+    const keepBottom = isComposerInputFocused();
+
     responsiveViewportFrame = requestAnimationFrame(() => {
         responsiveViewportFrame = 0;
         syncResponsiveViewport();
+        if (keepBottom) settleMobileComposer({ forceBottom: true });
     });
 }
 
@@ -54,14 +113,33 @@ window.addEventListener("resize", scheduleResponsiveViewport, { passive: true })
 window.visualViewport?.addEventListener("resize", scheduleResponsiveViewport, { passive: true });
 window.visualViewport?.addEventListener("scroll", scheduleResponsiveViewport, { passive: true });
 window.addEventListener("orientationchange", () => {
+    stableMobileViewportHeight = 0;
     scheduleResponsiveViewport();
-    window.setTimeout(syncResponsiveViewport, 140);
-    window.setTimeout(syncResponsiveViewport, 420);
+    window.setTimeout(() => {
+        syncResponsiveViewport();
+        settleMobileComposer({ forceBottom: isComposerInputFocused() });
+    }, 160);
+    window.setTimeout(() => {
+        syncResponsiveViewport();
+        settleMobileComposer({ forceBottom: isComposerInputFocused() });
+    }, 460);
 }, { passive: true });
-document.addEventListener("focusin", () => window.setTimeout(syncResponsiveViewport, 60), { passive: true });
+
+document.addEventListener("focusin", (event) => {
+    syncResponsiveViewport();
+    if (event.target?.id === "messageInput") {
+        settleMobileComposer({ forceBottom: true });
+    }
+}, { passive: true });
+
 document.addEventListener("focusout", () => {
-    window.setTimeout(syncResponsiveViewport, 80);
-    window.setTimeout(syncResponsiveViewport, 350);
+    window.setTimeout(syncResponsiveViewport, 100);
+    window.setTimeout(() => {
+        syncResponsiveViewport();
+        if (!isComposerInputFocused()) {
+            document.body?.classList.remove("mobile-composer-focused");
+        }
+    }, 360);
 }, { passive: true });
 
 const sendBtn = document.getElementById("sendBtn");
@@ -125,6 +203,7 @@ const profileSettingsForm = document.getElementById("profileSettingsForm");
 const profileDisplayName = document.getElementById("profileDisplayName");
 const profileEmail = document.getElementById("profileEmail");
 const compactMessagesToggle = document.getElementById("compactMessagesToggle");
+const mobileThemeSelect = document.getElementById("mobileThemeSelect");
 const saveProfileBtn = document.getElementById("saveProfileBtn");
 const chatSettingsModal = document.getElementById("chatSettingsModal");
 const settingsRoomName = document.getElementById("settingsRoomName");
@@ -560,6 +639,9 @@ function scrollToBottom() {
     if (!messages) return;
     requestAnimationFrame(() => {
         messages.scrollTop = messages.scrollHeight;
+        if (isComposerInputFocused()) {
+            settleMobileComposer({ forceBottom: true });
+        }
     });
 }
 
@@ -2124,13 +2206,43 @@ createGroupForm?.addEventListener("submit", async (event) => {
 // PROFILE SETTINGS
 // =========================
 const COMPACT_MESSAGES_KEY = "chat-ddt-compact-messages";
+const MOBILE_THEME_KEY = "chat-ddt-mobile-theme";
+const MOBILE_THEMES = ["midnight", "ocean", "forest", "graphite", "dusk"];
+const MOBILE_THEME_COLORS = {
+    midnight: "#10182b",
+    ocean: "#0b2026",
+    forest: "#13251f",
+    graphite: "#1c1f24",
+    dusk: "#211a2d"
+};
 
 function applyCompactMessages(enabled) {
     document.body.classList.toggle("compact-messages", Boolean(enabled));
     localStorage.setItem(COMPACT_MESSAGES_KEY, enabled ? "1" : "0");
 }
 
+function normalizeMobileTheme(theme) {
+    return MOBILE_THEMES.includes(theme) ? theme : "midnight";
+}
+
+function applyMobileTheme(theme, { persist = true } = {}) {
+    const selected = normalizeMobileTheme(theme);
+    MOBILE_THEMES.forEach((name) => document.body.classList.remove(`mobile-theme-${name}`));
+    document.body.classList.add(`mobile-theme-${selected}`);
+    document.body.dataset.mobileTheme = selected;
+
+    if (mobileThemeSelect) mobileThemeSelect.value = selected;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", MOBILE_THEME_COLORS[selected]);
+
+    if (persist) localStorage.setItem(MOBILE_THEME_KEY, selected);
+}
+
 applyCompactMessages(localStorage.getItem(COMPACT_MESSAGES_KEY) === "1");
+applyMobileTheme(localStorage.getItem(MOBILE_THEME_KEY) || "midnight", { persist: false });
+
+mobileThemeSelect?.addEventListener("change", () => {
+    applyMobileTheme(mobileThemeSelect.value);
+});
 
 profileSettingsBtn?.addEventListener("click", () => {
     const user = auth.currentUser;
@@ -2138,6 +2250,7 @@ profileSettingsBtn?.addEventListener("click", () => {
     if (profileDisplayName) profileDisplayName.value = user.displayName || user.email?.split("@")[0] || "";
     if (profileEmail) profileEmail.value = user.email || "";
     if (compactMessagesToggle) compactMessagesToggle.checked = document.body.classList.contains("compact-messages");
+    if (mobileThemeSelect) mobileThemeSelect.value = normalizeMobileTheme(localStorage.getItem(MOBILE_THEME_KEY) || document.body.dataset.mobileTheme);
     openModal(profileSettingsModal);
 });
 
@@ -2152,6 +2265,7 @@ profileSettingsForm?.addEventListener("submit", async (event) => {
         await updateProfile(user, { displayName: name });
         await setDoc(doc(db, "users", user.uid), { name, updatedAt: serverTimestamp() }, { merge: true });
         applyCompactMessages(Boolean(compactMessagesToggle?.checked));
+        applyMobileTheme(mobileThemeSelect?.value || document.body.dataset.mobileTheme || "midnight");
 
         const myName = document.getElementById("myName");
         if (myName) myName.textContent = name;
@@ -2334,6 +2448,7 @@ window.openChat = function (target) {
     if (isMobile()) {
         document.getElementById("chatPage")?.classList.add("mobile-chat-open");
         if (backBtn) backBtn.style.display = "grid";
+        settleMobileComposer({ forceBottom: true });
     }
 };
 
