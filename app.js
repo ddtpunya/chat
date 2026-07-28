@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260728-mobile-keyboard-themes-v17";
+import { auth, db, storage } from "./firebase.js?v=20260728-complete-session-fix-v18";
 import {
     collection,
     addDoc,

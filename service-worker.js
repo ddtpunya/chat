@@ -1,12 +1,12 @@
-const CACHE_NAME = "chat-ddt-pwa-v17";
+const CACHE_NAME = "chat-ddt-pwa-v18";
 const APP_SHELL = [
     "./",
     "./index.html",
-    "./style.css?v=20260728-mobile-keyboard-themes-v17",
-    "./firebase.js?v=20260728-mobile-keyboard-themes-v17",
-    "./auth.js?v=20260728-mobile-keyboard-themes-v17",
-    "./app.js?v=20260728-mobile-keyboard-themes-v17",
-    "./manifest.webmanifest?v=20260728-mobile-keyboard-themes-v17",
+    "./style.css?v=20260728-complete-session-fix-v18",
+    "./firebase.js?v=20260728-complete-session-fix-v18",
+    "./auth.js?v=20260728-complete-session-fix-v18",
+    "./app.js?v=20260728-complete-session-fix-v18",
+    "./manifest.webmanifest?v=20260728-complete-session-fix-v18",
     "./apple-touch-icon.png",
     "./icon-192.png",
     "./icon-512.png",
@@ -14,19 +14,26 @@ const APP_SHELL = [
 ];
 
 self.addEventListener("install", (event) => {
-    event.waitUntil(
-        caches.open(CACHE_NAME)
-            .then((cache) => cache.addAll(APP_SHELL))
-            .then(() => self.skipWaiting())
-    );
+    event.waitUntil((async () => {
+        const cache = await caches.open(CACHE_NAME);
+        await Promise.allSettled(APP_SHELL.map(async (asset) => {
+            try {
+                const response = await fetch(asset, { cache: "reload" });
+                if (response.ok) await cache.put(asset, response);
+            } catch (error) {
+                console.warn("Gagal precache:", asset, error);
+            }
+        }));
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener("activate", (event) => {
-    event.waitUntil(
-        caches.keys()
-            .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
-            .then(() => self.clients.claim())
-    );
+    event.waitUntil((async () => {
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+        await self.clients.claim();
+    })());
 });
 
 self.addEventListener("fetch", (event) => {
@@ -36,34 +43,18 @@ self.addEventListener("fetch", (event) => {
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
-    // HTML/navigation: network first so updates are not trapped by an old cache.
-    if (request.mode === "navigate") {
-        event.respondWith(
-            fetch(request)
-                .then((response) => {
-                    const copy = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-                    return response;
-                })
-                .catch(async () => {
-                    return (await caches.match(request)) || (await caches.match("./index.html"));
-                })
-        );
-        return;
-    }
-
-    // Local assets: network first so Safari immediately receives layout fixes.
-    event.respondWith(
-        fetch(request)
-            .then((response) => {
-                if (response && response.ok) {
-                    const copy = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-                }
-                return response;
-            })
-            .catch(async () => {
-                return (await caches.match(request)) || Response.error();
-            })
-    );
+    event.respondWith((async () => {
+        try {
+            const response = await fetch(request);
+            if (response && response.ok) {
+                const cache = await caches.open(CACHE_NAME);
+                cache.put(request, response.clone()).catch(() => {});
+            }
+            return response;
+        } catch (error) {
+            return (await caches.match(request))
+                || (request.mode === "navigate" ? await caches.match("./index.html") : undefined)
+                || Response.error();
+        }
+    })());
 });

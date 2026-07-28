@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260728-mobile-keyboard-themes-v17">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260728-mobile-keyboard-themes-v17">
+    <link rel="manifest" href="manifest.webmanifest?v=20260728-complete-session-fix-v18">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260728-complete-session-fix-v18">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -69,13 +69,13 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260728-mobile-keyboard-themes-v17", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260728-complete-session-fix-v18", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260728-mobile-keyboard-themes-v17">
+    <link rel="stylesheet" href="style.css?v=20260728-complete-session-fix-v18">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -84,7 +84,7 @@
     <div class="auth-loading-card">
         <span class="auth-loading-spinner" aria-hidden="true"></span>
         <strong>Memulihkan sesi...</strong>
-        <small>Mengecek sesi tersimpan, maksimal beberapa detik</small>
+        <small id="authLoadingMessage">Mengecek sesi tersimpan, maksimal beberapa detik</small>
     </div>
 </div>
 
@@ -545,8 +545,39 @@
 
 <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-<script type="module" src="firebase.js?v=20260728-mobile-keyboard-themes-v17"></script>
-<script type="module" src="auth.js?v=20260728-mobile-keyboard-themes-v17"></script>
-<script type="module" src="app.js?v=20260728-mobile-keyboard-themes-v17"></script>
+
+<script>
+(() => {
+    // Pengaman independen: jika modul auth/firebase gagal dimuat, loading tidak boleh abadi.
+    window.__chatAuthModuleStarted = false;
+    window.__chatAuthStateResolved = false;
+
+    window.setTimeout(() => {
+        if (window.__chatAuthStateResolved) return;
+
+        const loading = document.getElementById("authLoadingPage");
+        const login = document.getElementById("loginPage");
+        const chat = document.getElementById("chatPage");
+        const message = document.getElementById("authLoadingMessage");
+
+        if (message) {
+            message.textContent = window.__chatAuthModuleStarted
+                ? "Sesi belum terdeteksi. Menampilkan halaman login..."
+                : "File autentikasi tidak berhasil dimuat. Periksa auth.js dan firebase.js.";
+        }
+
+        window.setTimeout(() => {
+            if (window.__chatAuthStateResolved) return;
+            if (loading) loading.style.display = "none";
+            if (login) login.style.display = "flex";
+            if (chat) chat.style.display = "none";
+        }, 450);
+    }, 8000);
+})();
+</script>
+
+<script type="module" src="firebase.js?v=20260728-complete-session-fix-v18"></script>
+<script type="module" src="auth.js?v=20260728-complete-session-fix-v18"></script>
+<script type="module" src="app.js?v=20260728-complete-session-fix-v18"></script>
 </body>
 </html>
