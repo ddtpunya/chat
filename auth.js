@@ -23,11 +23,11 @@ import { auth, db } from "./firebase.js?v=20260728-mobile-keyboard-themes-v17";
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.
 const ALLOWED_EMAILS = [
-    "anthoyan4556@gmail.com",
     "franssisca865@gmail.com",
     "verenlim49@gmail.com",
     "verensmb@gmail.com",
     "anthonywian4@gmail.com",
+    "anthoyan4556@gmail.com",
 ];
 
 const loginBtn = document.getElementById("loginBtn");
