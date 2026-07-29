@@ -4,7 +4,7 @@
   "short_name": "CHAT DDT",
   "description": "Private chat dan group chat realtime DDT dengan UI mobile modern.",
   "lang": "id-ID",
-  "start_url": "./?source=iphone-home-screen&v=22",
+  "start_url": "./?source=iphone-home-screen&v=27",
   "scope": "./",
   "display": "standalone",
   "display_override": [

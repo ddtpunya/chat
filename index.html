@@ -4,14 +4,51 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#05080f">
+    <script>
+    (() => {
+        const key = "chat-ddt-mobile-theme";
+        const colors = {
+            midnight: "#05080f",
+            ocean: "#061216",
+            forest: "#09130f",
+            graphite: "#111316",
+            dusk: "#120e18",
+            aurora: "#07111d",
+            lavender: "#110d19"
+        };
+
+        let selected = "midnight";
+        try {
+            const saved = localStorage.getItem(key);
+            if (saved && colors[saved]) selected = saved;
+        } catch (_) {}
+
+        const color = colors[selected];
+        const root = document.documentElement;
+        root.dataset.mobileTheme = selected;
+        root.classList.add(`mobile-theme-${selected}`);
+        root.style.setProperty("--mobile-page-bg", color);
+        root.style.backgroundColor = color;
+        document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
+
+        window.__CHAT_DDT_INITIAL_THEME__ = { selected, color };
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.body.dataset.mobileTheme = selected;
+            document.body.classList.add(`mobile-theme-${selected}`);
+            document.body.style.setProperty("--mobile-page-bg", color);
+            document.body.style.backgroundColor = color;
+        }, { once: true });
+    })();
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="color-scheme" content="dark">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260729-fullscreen-theme-fix-v26">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-fullscreen-theme-fix-v26">
+    <link rel="manifest" href="manifest.webmanifest?v=20260729-theme-sync-fix-v27">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-theme-sync-fix-v27">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -70,7 +107,7 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260729-fullscreen-theme-fix-v26", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260729-theme-sync-fix-v27", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
@@ -78,19 +115,19 @@
     </script>
 
     <style id="criticalAppFallbackStyle">
-        html, body { margin: 0; width: 100%; height: 100%; background: #05080f; color: #fff; }
-        #authLoadingPage { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#060b18,#13224d); }
-        #authLoadingPage .auth-loading-card { padding: 26px; border-radius: 18px; background: #0f172a; color: #fff; text-align: center; }
+        html, body { margin: 0; width: 100%; height: 100%; background: var(--mobile-page-bg, #05080f); color: #fff; }
+        #authLoadingPage { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: var(--mobile-page-bg, #05080f); }
+        #authLoadingPage .auth-loading-card { padding: 26px; border-radius: 18px; background: color-mix(in srgb, var(--mobile-page-bg, #05080f) 76%, white 8%); color: #fff; text-align: center; }
     </style>
     <script>
     window.addEventListener("error", (event) => {
         const message = document.getElementById("authLoadingMessage");
         if (message && /app\.js|auth\.js|firebase\.js/i.test(String(event.filename || ""))) {
-            message.textContent = "Aplikasi gagal dimuat. Muat ulang setelah file v25 selesai di-upload.";
+            message.textContent = "Aplikasi gagal dimuat. Muat ulang setelah file v27 selesai di-upload.";
         }
     }, true);
     </script>
-    <link rel="stylesheet" href="style.css?v=20260729-fullscreen-theme-fix-v26">
+    <link rel="stylesheet" href="style.css?v=20260729-theme-sync-fix-v27">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -711,8 +748,8 @@
 })();
 </script>
 
-<script type="module" src="firebase.js?v=20260729-fullscreen-theme-fix-v26"></script>
-<script type="module" src="auth.js?v=20260729-fullscreen-theme-fix-v26"></script>
-<script type="module" src="app.js?v=20260729-fullscreen-theme-fix-v26"></script>
+<script type="module" src="firebase.js?v=20260729-theme-sync-fix-v27"></script>
+<script type="module" src="auth.js?v=20260729-theme-sync-fix-v27"></script>
+<script type="module" src="app.js?v=20260729-theme-sync-fix-v27"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-fullscreen-theme-fix-v26";
+import { auth, db, storage } from "./firebase.js?v=20260729-theme-sync-fix-v27";
 import {
     collection,
     addDoc,
@@ -2888,14 +2888,25 @@ function applyMobileTheme(theme, { persist = true } = {}) {
     document.body.dataset.mobileTheme = selected;
     document.documentElement.dataset.mobileTheme = selected;
 
-    // Safari mengambil warna area status bar dari html/theme-color.
+    // Sinkronkan warna halaman, safe-area, dan browser chrome sejak tema berubah.
     document.documentElement.style.setProperty("--mobile-page-bg", themeColor);
     document.body.style.setProperty("--mobile-page-bg", themeColor);
     document.documentElement.style.backgroundColor = themeColor;
     document.body.style.backgroundColor = themeColor;
 
+    [document.getElementById("authLoadingPage"), document.getElementById("loginPage"), document.getElementById("chatPage")].forEach((element) => {
+        if (element) element.style.backgroundColor = themeColor;
+    });
+
     if (mobileThemeSelect) mobileThemeSelect.value = selected;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor);
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+        meta.setAttribute("content", themeColor);
+    });
+
+    window.__CHAT_DDT_INITIAL_THEME__ = { selected, color: themeColor };
+    window.dispatchEvent(new CustomEvent("chat-ddt-theme-change", {
+        detail: { theme: selected, color: themeColor }
+    }));
 
     if (persist) localStorage.setItem(MOBILE_THEME_KEY, selected);
 }

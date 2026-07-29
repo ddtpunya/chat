@@ -19,7 +19,7 @@ import {
     deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js?v=20260729-fullscreen-theme-fix-v26";
+import { auth, db } from "./firebase.js?v=20260729-theme-sync-fix-v27";
 
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.

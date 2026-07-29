@@ -6071,3 +6071,34 @@ html[data-mobile-theme="lavender"] { --mobile-page-bg: #110d19; }
         background: var(--mobile-page-bg, #05080f) !important;
     }
 }
+
+
+/* =========================================================
+   EARLY THEME SYNCHRONIZATION — V27
+   Tema aktif mengisi seluruh viewport sejak first paint.
+   ========================================================= */
+html[data-mobile-theme="midnight"], body[data-mobile-theme="midnight"] { --mobile-page-bg: #05080f; }
+html[data-mobile-theme="ocean"], body[data-mobile-theme="ocean"] { --mobile-page-bg: #061216; }
+html[data-mobile-theme="forest"], body[data-mobile-theme="forest"] { --mobile-page-bg: #09130f; }
+html[data-mobile-theme="graphite"], body[data-mobile-theme="graphite"] { --mobile-page-bg: #111316; }
+html[data-mobile-theme="dusk"], body[data-mobile-theme="dusk"] { --mobile-page-bg: #120e18; }
+html[data-mobile-theme="aurora"], body[data-mobile-theme="aurora"] { --mobile-page-bg: #07111d; }
+html[data-mobile-theme="lavender"], body[data-mobile-theme="lavender"] { --mobile-page-bg: #110d19; }
+
+html, body, #authLoadingPage, #loginPage, #chatPage {
+    background-color: var(--mobile-page-bg, #05080f) !important;
+}
+
+@media (max-width: 768px) {
+    html::before,
+    body::before {
+        background-color: var(--mobile-page-bg, #05080f) !important;
+    }
+
+    #chatPage,
+    #chatPage .sidebar,
+    #chatPage .chat {
+        min-height: var(--app-height, 100dvh);
+        background-color: var(--mobile-page-bg, #05080f) !important;
+    }
+}
