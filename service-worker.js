@@ -1,5 +1,5 @@
-const CACHE_NAME = "chat-ddt-pwa-v22";
-const VERSION = "20260729-modern-dynamic-ui-v22";
+const CACHE_NAME = "chat-ddt-pwa-v23";
+const VERSION = "20260729-stable-send-scroll-v23";
 const APP_SHELL = [
     "./",
     "./index.html",

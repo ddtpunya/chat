@@ -19,7 +19,7 @@ import {
     deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js?v=20260729-modern-dynamic-ui-v22";
+import { auth, db } from "./firebase.js?v=20260729-stable-send-scroll-v23";
 
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.

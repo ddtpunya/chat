@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260729-modern-dynamic-ui-v22">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-modern-dynamic-ui-v22">
+    <link rel="manifest" href="manifest.webmanifest?v=20260729-stable-send-scroll-v23">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-stable-send-scroll-v23">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -69,13 +69,13 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260729-modern-dynamic-ui-v22", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260729-stable-send-scroll-v23", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260729-modern-dynamic-ui-v22">
+    <link rel="stylesheet" href="style.css?v=20260729-stable-send-scroll-v23">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -696,8 +696,8 @@
 })();
 </script>
 
-<script type="module" src="firebase.js?v=20260729-modern-dynamic-ui-v22"></script>
-<script type="module" src="auth.js?v=20260729-modern-dynamic-ui-v22"></script>
-<script type="module" src="app.js?v=20260729-modern-dynamic-ui-v22"></script>
+<script type="module" src="firebase.js?v=20260729-stable-send-scroll-v23"></script>
+<script type="module" src="auth.js?v=20260729-stable-send-scroll-v23"></script>
+<script type="module" src="app.js?v=20260729-stable-send-scroll-v23"></script>
 </body>
 </html>

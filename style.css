@@ -5933,3 +5933,30 @@ body.mobile-theme-lavender {
         transition-duration: .01ms !important;
     }
 }
+
+
+/* =========================================================
+   V23 — stable one-step send scrolling
+   ========================================================= */
+@media (max-width: 768px) {
+    body.message-bottom-locked #messages {
+        scroll-behavior: auto !important;
+        overflow-anchor: none !important;
+        overscroll-behavior: none !important;
+    }
+
+    body.message-bottom-locked .message-row,
+    body.message-bottom-locked .message-content,
+    body.message-bottom-locked .message-meta,
+    body.message-bottom-locked .message-seen,
+    body.message-bottom-locked .composer-wrap,
+    body.message-bottom-locked .input-box {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+
+    body.message-bottom-locked .message-row.is-long-pressing {
+        transform: none !important;
+    }
+}

@@ -1,28 +1,16 @@
-CHAT DDT — MODERN DYNAMIC MOBILE UI V22
+CHAT DDT Stable Send Scroll v23
 
-Fokus utama:
-- UI mobile lebih modern, dinamis, familiar, dan nyaman untuk penggunaan lama.
-- Header, pencarian, filter, daftar chat, bubble pesan, composer, bottom navigation, dan modal diperbarui.
-- Gerakan pesan saat mengirim tetap dinonaktifkan agar posisi chat stabil.
-- Push notification ditunda dan tidak disertakan pada paket ini.
+PERBAIKAN:
+- Setelah mengirim pesan, chat langsung berpindah satu kali ke posisi paling bawah.
+- Tidak ada lagi gerakan naik-turun akibat render pending, server timestamp, status terkirim/dibaca, atau perubahan tinggi composer.
+- Composer dibersihkan sebelum write agar layout berubah satu kali saja.
+- Scroll halus dinonaktifkan selama sinkronisasi pesan baru.
 
-Cara pemasangan:
-1. Buka auth.js lama dan salin semua Gmail pada ALLOWED_EMAILS.
-2. Masukkan kembali daftar Gmail tersebut ke auth.js v22.
-3. Timpa seluruh file website lama dengan semua file dari folder v22.
-4. Upload dan publish website.
-5. Tutup semua tab CHAT DDT lalu buka kembali.
-6. Jika memakai aplikasi Home Screen iPhone dan UI lama masih muncul, hapus ikon lama lalu pasang ulang.
+PEMASANGAN:
+1. Salin kembali daftar ALLOWED_EMAILS dari auth.js lama bila diperlukan.
+2. Timpa seluruh file website dengan isi folder v23.
+3. Upload/publish ulang.
+4. Tutup tab lama lalu buka kembali.
+5. Jika memakai Home Screen/PWA, hapus aplikasi lama dan pasang ulang bila cache lama masih muncul.
 
-Firestore:
-- Tidak ada perubahan rules yang diwajibkan khusus untuk UI v22.
-- Rules v19/v21 yang sedang digunakan tetap kompatibel.
-
-Tema mobile baru:
-- Aurora Modern
-- Lavender Night
-- Midnight Blue
-- Ocean Calm
-- Forest Soft
-- Graphite Dark
-- Dusk Purple
+Tidak perlu mengubah Firestore Rules atau Storage Rules.

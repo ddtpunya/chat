@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-modern-dynamic-ui-v22";
+import { auth, db, storage } from "./firebase.js?v=20260729-stable-send-scroll-v23";
 import {
     collection,
     addDoc,
@@ -24,6 +24,33 @@ import {
 let responsiveViewportFrame = 0;
 let stableMobileViewportHeight = 0;
 let composerSettleTimers = [];
+let postSendBottomLockUntil = 0;
+let postSendBottomLockTimer = 0;
+
+function isPostSendBottomLocked() {
+    return Date.now() < postSendBottomLockUntil;
+}
+
+function jumpMessageListToBottomNow() {
+    const list = document.getElementById("messages");
+    if (!list) return;
+
+    // Paksa layout selesai lalu lompat sekali tanpa animasi.
+    void list.offsetHeight;
+    list.scrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
+}
+
+function beginPostSendBottomLock(duration = 1100) {
+    postSendBottomLockUntil = Date.now() + duration;
+    document.body?.classList.add("message-send-stable", "message-bottom-locked");
+
+    if (postSendBottomLockTimer) window.clearTimeout(postSendBottomLockTimer);
+    postSendBottomLockTimer = window.setTimeout(() => {
+        postSendBottomLockUntil = 0;
+        postSendBottomLockTimer = 0;
+        document.body?.classList.remove("message-send-stable", "message-bottom-locked");
+    }, duration);
+}
 
 function isMobileViewportWidth(width = window.innerWidth) {
     return Number(width) <= 768;
@@ -78,20 +105,22 @@ function settleMobileComposer({ forceBottom = true } = {}) {
 
     if (!isMobileViewportWidth(window.visualViewport?.width || window.innerWidth)) return;
 
-    [0, 50, 120, 240, 420, 700, 950].forEach((delay) => {
+    // Saat pesan baru saja dikirim, hindari rangkaian scroll berulang yang
+    // menimbulkan efek naik-turun. Cukup sinkronkan viewport dan lompat sekali.
+    if (isPostSendBottomLocked()) {
+        syncResponsiveViewport();
+        if (forceBottom) jumpMessageListToBottomNow();
+        return;
+    }
+
+    [0, 70, 180, 360].forEach((delay) => {
         const timer = window.setTimeout(() => {
             syncResponsiveViewport();
 
             const chatPage = document.getElementById("chatPage");
-            const messageList = document.getElementById("messages");
-            if (!chatPage?.classList.contains("mobile-chat-open") || !messageList) return;
+            if (!chatPage?.classList.contains("mobile-chat-open")) return;
 
-            if (forceBottom) {
-                messageList.scrollTop = messageList.scrollHeight;
-                requestAnimationFrame(() => {
-                    messageList.scrollTop = messageList.scrollHeight;
-                });
-            }
+            if (forceBottom) jumpMessageListToBottomNow();
         }, delay);
         composerSettleTimers.push(timer);
     });
@@ -104,7 +133,13 @@ function scheduleResponsiveViewport() {
     responsiveViewportFrame = requestAnimationFrame(() => {
         responsiveViewportFrame = 0;
         syncResponsiveViewport();
-        if (keepBottom) settleMobileComposer({ forceBottom: true });
+        if (!keepBottom) return;
+
+        if (isPostSendBottomLocked()) {
+            jumpMessageListToBottomNow();
+        } else {
+            settleMobileComposer({ forceBottom: true });
+        }
     });
 }
 
@@ -807,17 +842,8 @@ input?.addEventListener("keydown", (event) => {
 // =========================
 // AUTO SCROLL
 // =========================
-let bottomScrollFrame = 0;
 function scrollToBottom() {
-    if (!messages) return;
-    if (bottomScrollFrame) cancelAnimationFrame(bottomScrollFrame);
-    bottomScrollFrame = requestAnimationFrame(() => {
-        bottomScrollFrame = 0;
-        messages.scrollTop = messages.scrollHeight;
-        requestAnimationFrame(() => {
-            if (messages) messages.scrollTop = messages.scrollHeight;
-        });
-    });
+    jumpMessageListToBottomNow();
 }
 
 scrollBottomBtn?.addEventListener("click", scrollToBottom);
@@ -844,28 +870,36 @@ sendBtn?.addEventListener("click", async () => {
 
     const targetChatId = currentChatId;
     const replyData = activeReply ? { ...activeReply } : null;
+    const keepKeyboardFocus = isComposerInputFocused();
+    const previousValue = input?.value || text;
 
     try {
         sendBtn.disabled = true;
-        document.body.classList.add("message-send-stable");
-        const keepKeyboardFocus = isComposerInputFocused();
+        beginPostSendBottomLock(1200);
+
+        // Bersihkan composer sebelum write supaya tinggi area chat hanya berubah sekali.
+        input.value = "";
+        stopLocalTyping();
+        clearReply();
+        jumpMessageListToBottomNow();
+
+        if (keepKeyboardFocus) input.focus({ preventScroll: true });
+
         await addDoc(collection(db, "messages"), {
             ...createMessageBase(user, targetChatId, replyData),
             text
         });
 
-        input.value = "";
-        stopLocalTyping();
-        clearReply();
-        scrollToBottom();
-        if (keepKeyboardFocus) input.focus({ preventScroll: true });
-        window.setTimeout(scrollToBottom, 80);
+        // Satu-satunya perpindahan yang diinginkan: langsung ke pesan paling bawah.
+        jumpMessageListToBottomNow();
     } catch (error) {
         console.error("Gagal mengirim pesan:", error);
+        if (input && currentChatId === targetChatId && !input.value) {
+            input.value = previousValue;
+        }
         alert("Pesan gagal dikirim. Periksa koneksi atau aturan Firestore.");
     } finally {
         sendBtn.disabled = false;
-        window.setTimeout(() => document.body.classList.remove("message-send-stable"), 180);
     }
 });
 
@@ -1756,7 +1790,8 @@ function bindMessageLongPress(row, messageDoc) {
 function renderCurrentMessages({ autoScroll = false } = {}) {
     if (!messages) return;
 
-    const firstVisibleRow = Array.from(messages.querySelectorAll(".message-row")).find((row) => {
+    const lockToBottom = autoScroll || isPostSendBottomLocked();
+    const firstVisibleRow = lockToBottom ? null : Array.from(messages.querySelectorAll(".message-row")).find((row) => {
         const rect = row.getBoundingClientRect();
         const listRect = messages.getBoundingClientRect();
         return rect.bottom >= listRect.top + 4;
@@ -1880,8 +1915,9 @@ function renderCurrentMessages({ autoScroll = false } = {}) {
 
     applyMessageSearch();
 
-    if (autoScroll && !currentMessageSearch) {
-        scrollToBottom();
+    if (lockToBottom && !currentMessageSearch) {
+        // Sinkron, tanpa smooth scroll dan tanpa frame kedua.
+        jumpMessageListToBottomNow();
     } else if (anchorId) {
         requestAnimationFrame(() => {
             const anchor = document.getElementById(anchorId);
@@ -1906,11 +1942,11 @@ function listenToReactions(chatId) {
     const reactionsQuery = query(collection(db, "message_reactions"), ...reactionConstraints);
     unsubscribeReactions = onSnapshot(reactionsQuery, (snapshot) => {
         latestReactionDocs = snapshot.docs.slice();
-        renderCurrentMessages({ autoScroll: false });
+        renderCurrentMessages({ autoScroll: isPostSendBottomLocked() || isNearBottom() });
     }, (error) => {
         console.warn("Gagal memuat reaksi pesan:", error);
         latestReactionDocs = [];
-        renderCurrentMessages({ autoScroll: false });
+        renderCurrentMessages({ autoScroll: isPostSendBottomLocked() || isNearBottom() });
     });
 }
 
@@ -1928,7 +1964,7 @@ function listenToChat(chatId) {
     unsubscribeChat = onSnapshot(messagesQuery, { includeMetadataChanges: true }, (snapshot) => {
         if (!messages) return;
 
-        const shouldAutoScroll = isNearBottom() || isComposerInputFocused();
+        const shouldAutoScroll = isPostSendBottomLocked() || isNearBottom() || isComposerInputFocused();
         latestMessageDocs = snapshot.docs.slice().sort((a, b) => {
             const aData = a.data() || {};
             const bData = b.data() || {};
