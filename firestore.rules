@@ -14,13 +14,12 @@ service cloud.firestore {
              && request.auth.uid in get(/databases/$(database)/documents/friendships/$(chatId)).data.userUids;
     }
 
-
-    function isGroupMessage(data) {
+    function isGroupRecord(data) {
       return data.chatId is string && data.chatId.matches('^group_.*$');
     }
 
-    function canAccessGroupMessage(data) {
-      return isGroupMessage(data)
+    function canAccessGroupRecord(data) {
+      return isGroupRecord(data)
              && (
                !data.keys().hasAll(['groupId'])
                || (
@@ -31,10 +30,10 @@ service cloud.firestore {
              );
     }
 
-    function canAccessMessage(data) {
+    function canAccessRoomRecord(data) {
       return signedIn()
              && (
-               canAccessGroupMessage(data)
+               canAccessGroupRecord(data)
                || friendshipAccepted(data.chatId)
              );
     }
@@ -47,6 +46,37 @@ service cloud.firestore {
                !resource.data.keys().hasAll(['readBy'])
                || request.resource.data.readBy.hasAll(resource.data.readBy)
              );
+    }
+
+    function onlyHidesForSelf() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenFor'])
+             && request.resource.data.hiddenFor is list
+             && request.auth.uid in request.resource.data.hiddenFor
+             && (
+               (
+                 !resource.data.keys().hasAll(['hiddenFor'])
+                 && request.resource.data.hiddenFor.size() == 1
+               )
+               || (
+                 resource.data.hiddenFor is list
+                 && request.resource.data.hiddenFor.hasAll(resource.data.hiddenFor)
+                 && request.resource.data.hiddenFor.size() == resource.data.hiddenFor.size() + 1
+               )
+             );
+    }
+
+    function ownerMessageUpdate() {
+      return resource.data.uid == request.auth.uid
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+               'text',
+               'editedAt',
+               'editedBy',
+               'deletedForAll',
+               'deletedAt',
+               'deletedBy',
+               'attachment',
+               'replyTo'
+             ]);
     }
 
     function hasRelationshipWith(userId) {
@@ -67,7 +97,6 @@ service cloud.firestore {
     }
 
     match /email_lookup/{emailKey} {
-      // Exact document lookup only; listing/querying the collection is denied.
       allow get: if signedIn();
       allow list: if false;
       allow create: if signedIn()
@@ -126,18 +155,58 @@ service cloud.firestore {
     }
 
     match /messages/{messageId} {
-      allow read: if canAccessMessage(resource.data);
+      allow read: if canAccessRoomRecord(resource.data);
 
-      allow create: if canAccessMessage(request.resource.data)
+      allow create: if canAccessRoomRecord(request.resource.data)
                     && request.resource.data.uid == request.auth.uid;
 
-      allow update: if canAccessMessage(resource.data)
+      allow update: if canAccessRoomRecord(resource.data)
                     && (
-                      resource.data.uid == request.auth.uid
-                      || onlyAddsReadReceipt()
+                      onlyAddsReadReceipt()
+                      || onlyHidesForSelf()
+                      || ownerMessageUpdate()
                     );
 
-      allow delete: if canAccessMessage(resource.data)
+      allow delete: if canAccessRoomRecord(resource.data)
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    match /typing/{typingId} {
+      allow read: if canAccessRoomRecord(resource.data);
+
+      allow create: if canAccessRoomRecord(request.resource.data)
+                    && request.resource.data.uid == request.auth.uid
+                    && typingId == request.resource.data.chatId + '__' + request.auth.uid;
+
+      allow update: if canAccessRoomRecord(resource.data)
+                    && canAccessRoomRecord(request.resource.data)
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.chatId == resource.data.chatId
+                    && typingId == resource.data.chatId + '__' + request.auth.uid;
+
+      allow delete: if canAccessRoomRecord(resource.data)
+                    && resource.data.uid == request.auth.uid;
+    }
+
+    match /message_reactions/{reactionId} {
+      allow read: if canAccessRoomRecord(resource.data);
+
+      allow create: if canAccessRoomRecord(request.resource.data)
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.emoji in ['👍', '❤️', '😂', '😮']
+                    && reactionId == request.resource.data.messageId + '__' + request.auth.uid;
+
+      allow update: if canAccessRoomRecord(resource.data)
+                    && canAccessRoomRecord(request.resource.data)
+                    && resource.data.uid == request.auth.uid
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.messageId == resource.data.messageId
+                    && request.resource.data.chatId == resource.data.chatId
+                    && request.resource.data.emoji in ['👍', '❤️', '😂', '😮']
+                    && reactionId == resource.data.messageId + '__' + request.auth.uid;
+
+      allow delete: if canAccessRoomRecord(resource.data)
                     && resource.data.uid == request.auth.uid;
     }
   }

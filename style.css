@@ -4071,3 +4071,382 @@ body.mobile-theme-dusk {
         min-height: 54px !important;
     }
 }
+
+/* =========================================================
+   PRECISE MOBILE KEYBOARD + TYPING / MESSAGE ACTIONS — V19
+   ========================================================= */
+.typing-indicator[hidden] {
+    display: none !important;
+}
+
+.typing-indicator {
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 15px 2px;
+    color: #9fc4f6;
+    font-size: 12px;
+    font-weight: 700;
+    background: #0d1727;
+}
+
+.typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.typing-dots i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: typingDotPulse 1.1s infinite ease-in-out;
+}
+
+.typing-dots i:nth-child(2) { animation-delay: .14s; }
+.typing-dots i:nth-child(3) { animation-delay: .28s; }
+
+@keyframes typingDotPulse {
+    0%, 65%, 100% { transform: translateY(0); opacity: .45; }
+    30% { transform: translateY(-3px); opacity: 1; }
+}
+
+.message-edited {
+    color: #7f94b2;
+    font-size: 10px;
+    font-style: italic;
+    white-space: nowrap;
+}
+
+.message-deleted {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    color: #9aa9bd;
+    background: rgba(148, 163, 184, .08);
+    border: 1px dashed rgba(148, 163, 184, .2);
+    font-size: 13px;
+    font-style: italic;
+}
+
+.message-deleted i {
+    font-size: 11px;
+}
+
+.message-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 9px;
+}
+
+.message-reaction-chip {
+    min-width: 46px;
+    height: 29px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 0 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, .2);
+    background: rgba(30, 41, 59, .72);
+    color: #dce8fa;
+    cursor: pointer;
+}
+
+.message-reaction-chip strong {
+    font-size: 11px;
+}
+
+.message-reaction-chip.is-mine {
+    border-color: rgba(96, 165, 250, .7);
+    background: rgba(59, 130, 246, .2);
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, .12) inset;
+}
+
+.message-actions {
+    min-width: 116px;
+    width: auto;
+    height: 38px;
+    padding: 0 7px;
+    gap: 3px;
+}
+
+.message-actions button {
+    width: 31px;
+    height: 31px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 8px;
+}
+
+.message-actions button:hover {
+    background: rgba(255,255,255,.07);
+}
+
+.message-action-card {
+    width: min(470px, 100%);
+}
+
+.quick-reaction-block {
+    margin-bottom: 14px;
+}
+
+.quick-reactions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 9px;
+    margin-top: 9px;
+}
+
+.quick-reactions button {
+    min-height: 52px;
+    border: 1px solid rgba(148,163,184,.18);
+    border-radius: 13px;
+    background: rgba(148,163,184,.07);
+    font-size: 25px;
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+}
+
+.quick-reactions button:hover,
+.quick-reactions button.is-selected {
+    transform: translateY(-1px);
+    background: rgba(59,130,246,.18);
+    border-color: rgba(96,165,250,.58);
+}
+
+.quick-reactions.is-disabled {
+    opacity: .45;
+}
+
+.message-action-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.message-action-item {
+    width: 100%;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(148,163,184,.14);
+    border-radius: 13px;
+    text-align: left;
+    color: #edf5ff;
+    background: rgba(148,163,184,.055);
+    cursor: pointer;
+}
+
+.message-action-item > i {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    color: #8ebdff;
+    background: rgba(59,130,246,.14);
+}
+
+.message-action-item span {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.message-action-item strong {
+    font-size: 13px;
+}
+
+.message-action-item small {
+    color: #95a7c0;
+    font-size: 11px;
+}
+
+.message-action-item.is-danger > i {
+    color: #fca5a5;
+    background: rgba(239,68,68,.13);
+}
+
+.message-action-item.is-danger:hover {
+    border-color: rgba(248,113,113,.35);
+    background: rgba(127,29,29,.14);
+}
+
+.edit-message-input {
+    min-height: 130px;
+    height: auto;
+    padding: 12px 13px;
+    resize: vertical;
+    line-height: 1.5;
+    font-family: inherit;
+}
+
+@media (max-width: 1100px) {
+    .message-actions {
+        display: flex;
+    }
+}
+
+@media (max-width: 768px) {
+    /* visualViewport.offsetTop must be respected. Setting top:0 creates the
+       large gap above the keyboard when Safari pans the visual viewport. */
+    body.mobile-composer-focused #chatPage,
+    body.mobile-keyboard-open #chatPage,
+    #chatPage {
+        left: var(--visual-left, 0px) !important;
+        top: var(--visual-top, 0px) !important;
+        width: var(--visual-width, 100vw) !important;
+        height: var(--visual-height, 100svh) !important;
+        min-height: 0 !important;
+        max-height: var(--visual-height, 100svh) !important;
+    }
+
+    #chatPage.mobile-chat-open .chat {
+        display: grid !important;
+        grid-template-rows: auto minmax(0, 1fr) auto !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .chat-header {
+        grid-row: 1 !important;
+    }
+
+    #messages {
+        grid-row: 2 !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        padding-bottom: 10px !important;
+        scroll-padding-bottom: 10px;
+    }
+
+    .composer-wrap {
+        grid-row: 3 !important;
+        position: relative !important;
+        inset: auto !important;
+        align-self: end !important;
+        width: 100% !important;
+        margin: 0 !important;
+        transform: none !important;
+        padding-bottom: env(safe-area-inset-bottom) !important;
+    }
+
+    body.mobile-keyboard-open .composer-wrap,
+    body.mobile-composer-focused .composer-wrap {
+        padding-bottom: 0 !important;
+        margin: 0 !important;
+        bottom: auto !important;
+        transform: none !important;
+    }
+
+    .typing-indicator {
+        min-height: 25px;
+        padding: 4px max(10px, env(safe-area-inset-right)) 1px max(10px, env(safe-area-inset-left));
+        font-size: 11px;
+    }
+
+    .composer-wrap .input-box,
+    .input-box,
+    body.mobile-keyboard-open .composer-wrap .input-box,
+    body.mobile-keyboard-open .input-box {
+        min-height: 56px !important;
+        height: 56px !important;
+        padding-top: 7px !important;
+        padding-bottom: 7px !important;
+        align-items: center !important;
+    }
+
+    #messageInput {
+        height: 42px !important;
+        line-height: normal !important;
+    }
+
+    .message-row {
+        padding-right: 82px !important;
+    }
+
+    .message-content {
+        max-width: calc(100% - 45px) !important;
+    }
+
+    .message-actions {
+        position: absolute;
+        top: 10px;
+        right: 0;
+        min-width: 76px;
+        width: 76px;
+        height: 34px;
+        padding: 0 3px;
+        gap: 1px;
+        opacity: .82;
+        background: rgba(9, 15, 26, .72);
+    }
+
+    .message-actions button {
+        width: 23px;
+        height: 29px;
+        font-size: 11px;
+    }
+
+    .message-actions .reply-message-btn span {
+        display: none;
+    }
+
+    .message-reaction-chip {
+        min-width: 42px;
+        height: 28px;
+        padding: 0 8px;
+    }
+
+    .message-action-modal {
+        align-items: end !important;
+    }
+
+    .message-action-card,
+    .edit-message-card {
+        width: 100%;
+        border-radius: 18px 18px 10px 10px;
+    }
+
+    .quick-reactions button {
+        min-height: 48px;
+        font-size: 23px;
+    }
+
+    body[data-mobile-theme] .typing-indicator,
+    body[data-mobile-theme] .message-action-card,
+    body[data-mobile-theme] .edit-message-card {
+        background: var(--mobile-panel-strong) !important;
+        border-color: var(--mobile-line) !important;
+    }
+
+    body[data-mobile-theme] .message-action-item,
+    body[data-mobile-theme] .quick-reactions button,
+    body[data-mobile-theme] .message-reaction-chip,
+    body[data-mobile-theme] .message-deleted {
+        border-color: var(--mobile-line) !important;
+        background: color-mix(in srgb, var(--mobile-panel) 88%, white 12%) !important;
+    }
+
+    body[data-mobile-theme] .typing-indicator {
+        color: var(--mobile-accent) !important;
+    }
+}
+
+.message-action-item[hidden] {
+    display: none !important;
+}

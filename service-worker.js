@@ -1,12 +1,12 @@
-const CACHE_NAME = "chat-ddt-pwa-v18";
+const CACHE_NAME = "chat-ddt-pwa-v19";
 const APP_SHELL = [
     "./",
     "./index.html",
-    "./style.css?v=20260728-complete-session-fix-v18",
-    "./firebase.js?v=20260728-complete-session-fix-v18",
-    "./auth.js?v=20260728-complete-session-fix-v18",
-    "./app.js?v=20260728-complete-session-fix-v18",
-    "./manifest.webmanifest?v=20260728-complete-session-fix-v18",
+    "./style.css?v=20260729-mobile-typing-message-actions-v19",
+    "./firebase.js?v=20260729-mobile-typing-message-actions-v19",
+    "./auth.js?v=20260729-mobile-typing-message-actions-v19",
+    "./app.js?v=20260729-mobile-typing-message-actions-v19",
+    "./manifest.webmanifest?v=20260729-mobile-typing-message-actions-v19",
     "./apple-touch-icon.png",
     "./icon-192.png",
     "./icon-512.png",

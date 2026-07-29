@@ -19,7 +19,7 @@ import {
     deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js?v=20260728-complete-session-fix-v18";
+import { auth, db } from "./firebase.js?v=20260729-mobile-typing-message-actions-v19";
 
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.
@@ -155,6 +155,8 @@ function syncPrivateUnreadListeners(user) {
                 snapshot.forEach((messageDoc) => {
                     const data = messageDoc.data() || {};
                     const readers = Array.isArray(data.readBy) ? data.readBy : [];
+                    const hiddenFor = Array.isArray(data.hiddenFor) ? data.hiddenFor : [];
+                    if (hiddenFor.includes(user.uid)) return;
                     if (data.uid !== user.uid && !readers.includes(user.uid)) {
                         unreadTotal += 1;
                     }

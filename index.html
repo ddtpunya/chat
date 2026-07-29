@@ -2,15 +2,15 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#111a35">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260728-complete-session-fix-v18">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260728-complete-session-fix-v18">
+    <link rel="manifest" href="manifest.webmanifest?v=20260729-mobile-typing-message-actions-v19">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-mobile-typing-message-actions-v19">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -69,13 +69,13 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260728-complete-session-fix-v18", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260729-mobile-typing-message-actions-v19", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260728-complete-session-fix-v18">
+    <link rel="stylesheet" href="style.css?v=20260729-mobile-typing-message-actions-v19">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -198,6 +198,11 @@
         <div id="emojiPicker" class="emoji-picker" hidden aria-label="Pilih emotikon"></div>
 
         <div class="composer-wrap">
+            <div id="typingIndicator" class="typing-indicator" hidden aria-live="polite">
+                <span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+                <span id="typingIndicatorText">Sedang mengetik...</span>
+            </div>
+
             <div id="replyPreview" class="reply-preview" hidden>
                 <div class="reply-preview-line"></div>
                 <div class="reply-preview-content">
@@ -489,6 +494,69 @@
     </div>
 </section>
 
+<section id="messageActionModal" class="app-modal message-action-modal" hidden role="dialog" aria-modal="true" aria-labelledby="messageActionTitle">
+    <div class="modal-card message-action-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="messageActionTitle">Aksi Pesan</h2>
+                <p id="messageActionMeta">Pilih tindakan untuk pesan ini.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="quick-reaction-block">
+                <span class="field-label">Beri reaksi</span>
+                <div id="messageQuickReactions" class="quick-reactions" aria-label="Pilihan reaksi">
+                    <button type="button" data-reaction="👍" aria-label="Suka">👍</button>
+                    <button type="button" data-reaction="❤️" aria-label="Cinta">❤️</button>
+                    <button type="button" data-reaction="😂" aria-label="Tertawa">😂</button>
+                    <button type="button" data-reaction="😮" aria-label="Terkejut">😮</button>
+                </div>
+            </div>
+            <div class="message-action-list">
+                <button id="messageActionReplyBtn" class="message-action-item" type="button">
+                    <i class="fa-solid fa-reply"></i><span><strong>Balas</strong><small>Balas pesan ini</small></span>
+                </button>
+                <button id="messageActionEditBtn" class="message-action-item" type="button">
+                    <i class="fa-solid fa-pen"></i><span><strong>Edit pesan</strong><small>Ubah pesan milik Anda</small></span>
+                </button>
+                <button id="messageActionDeleteMeBtn" class="message-action-item" type="button">
+                    <i class="fa-regular fa-eye-slash"></i><span><strong>Hapus untuk saya</strong><small>Sembunyikan hanya dari akun Anda</small></span>
+                </button>
+                <button id="messageActionDeleteAllBtn" class="message-action-item is-danger" type="button">
+                    <i class="fa-solid fa-rotate-left"></i><span><strong>Tarik untuk semua</strong><small>Tampilkan “Pesan telah dihapus”</small></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section id="editMessageModal" class="app-modal" hidden role="dialog" aria-modal="true" aria-labelledby="editMessageTitle">
+    <form id="editMessageForm" class="modal-card edit-message-card">
+        <div class="modal-header">
+            <div>
+                <h2 id="editMessageTitle">Edit Pesan</h2>
+                <p>Perubahan akan diberi tanda “diedit”.</p>
+            </div>
+            <button class="modal-close-btn" type="button" data-close-modal title="Tutup">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <label class="field-label" for="editMessageInput">Isi pesan</label>
+            <textarea id="editMessageInput" class="modal-input edit-message-input" maxlength="4000" rows="5" required></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="secondary-btn" type="button" data-close-modal>Batal</button>
+            <button id="saveEditedMessageBtn" class="primary-btn" type="submit">
+                <i class="fa-solid fa-floppy-disk"></i> Simpan perubahan
+            </button>
+        </div>
+    </form>
+</section>
+
 <section id="imagePreviewModal" class="app-modal image-preview-modal" hidden role="dialog" aria-modal="true" aria-labelledby="imagePreviewTitle">
     <div class="modal-card image-preview-card">
         <div class="modal-header image-preview-header">
@@ -576,8 +644,8 @@
 })();
 </script>
 
-<script type="module" src="firebase.js?v=20260728-complete-session-fix-v18"></script>
-<script type="module" src="auth.js?v=20260728-complete-session-fix-v18"></script>
-<script type="module" src="app.js?v=20260728-complete-session-fix-v18"></script>
+<script type="module" src="firebase.js?v=20260729-mobile-typing-message-actions-v19"></script>
+<script type="module" src="auth.js?v=20260729-mobile-typing-message-actions-v19"></script>
+<script type="module" src="app.js?v=20260729-mobile-typing-message-actions-v19"></script>
 </body>
 </html>

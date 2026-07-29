@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260728-complete-session-fix-v18";
+import { auth, db, storage } from "./firebase.js?v=20260729-mobile-typing-message-actions-v19";
 import {
     collection,
     addDoc,
@@ -78,7 +78,7 @@ function settleMobileComposer({ forceBottom = true } = {}) {
 
     if (!isMobileViewportWidth(window.visualViewport?.width || window.innerWidth)) return;
 
-    [0, 60, 150, 280, 480].forEach((delay) => {
+    [0, 50, 120, 240, 420, 700, 950].forEach((delay) => {
         const timer = window.setTimeout(() => {
             syncResponsiveViewport();
 
@@ -226,8 +226,25 @@ const imagePreviewZoomInBtn = document.getElementById("imagePreviewZoomInBtn");
 const imagePreviewResetBtn = document.getElementById("imagePreviewResetBtn");
 const imagePreviewScaleLabel = document.getElementById("imagePreviewScaleLabel");
 const imagePreviewCounter = document.getElementById("imagePreviewCounter");
+const typingIndicator = document.getElementById("typingIndicator");
+const typingIndicatorText = document.getElementById("typingIndicatorText");
+const messageActionModal = document.getElementById("messageActionModal");
+const messageActionTitle = document.getElementById("messageActionTitle");
+const messageActionMeta = document.getElementById("messageActionMeta");
+const messageQuickReactions = document.getElementById("messageQuickReactions");
+const messageActionReplyBtn = document.getElementById("messageActionReplyBtn");
+const messageActionEditBtn = document.getElementById("messageActionEditBtn");
+const messageActionDeleteMeBtn = document.getElementById("messageActionDeleteMeBtn");
+const messageActionDeleteAllBtn = document.getElementById("messageActionDeleteAllBtn");
+const editMessageModal = document.getElementById("editMessageModal");
+const editMessageForm = document.getElementById("editMessageForm");
+const editMessageInput = document.getElementById("editMessageInput");
+const saveEditedMessageBtn = document.getElementById("saveEditedMessageBtn");
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮"];
+const TYPING_STOP_DELAY_MS = 1700;
+const TYPING_STALE_MS = 6500;
 const EMOJIS = [
     "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
     "😊", "😇", "🙂", "🙃", "😉", "😍", "🥰", "😘",
@@ -257,6 +274,16 @@ let latestMessageDocs = [];
 let readReceiptBatchBusy = false;
 let searchedFriendUser = null;
 let friendSearchBusy = false;
+let unsubscribeTyping = null;
+let unsubscribeReactions = null;
+let typingStopTimer = null;
+let typingFreshnessTimer = null;
+let typingWriteBusy = false;
+let lastTypingWriteAt = 0;
+let latestTypingDocs = [];
+let latestReactionDocs = [];
+let activeMessageAction = null;
+let activeEditMessage = null;
 
 let previewGallery = [];
 let previewIndex = -1;
@@ -464,6 +491,8 @@ function createMessageBase(user, chatId, replyData = activeReply) {
         ...(currentRoom.kind === "group" && currentRoom.id ? { groupId: currentRoom.id } : {}),
         createdAt: serverTimestamp(),
         readBy: [user.uid],
+        hiddenFor: [],
+        deletedForAll: false,
         replyTo: replyData ? {
             id: replyData.id,
             uid: replyData.uid,
@@ -618,6 +647,142 @@ document.addEventListener("keydown", (event) => {
 });
 
 // =========================
+// TYPING INDICATOR
+// =========================
+function typingDocumentId(chatId, uid) {
+    return `${chatId}__${uid}`;
+}
+
+async function writeTypingState(isTyping, chatId = currentChatId, roomSnapshot = currentRoom) {
+    const user = auth.currentUser;
+    if (!user || !chatId || roomSnapshot?.kind === "none") return;
+
+    const payload = {
+        chatId,
+        uid: user.uid,
+        name: user.displayName || user.email?.split("@")[0] || "User",
+        roomKind: roomSnapshot.kind,
+        ...(roomSnapshot.kind === "group" && roomSnapshot.id ? { groupId: roomSnapshot.id } : {}),
+        isTyping: Boolean(isTyping),
+        updatedAt: serverTimestamp()
+    };
+
+    try {
+        typingWriteBusy = true;
+        await setDoc(doc(db, "typing", typingDocumentId(chatId, user.uid)), payload, { merge: true });
+    } catch (error) {
+        console.warn("Gagal memperbarui indikator mengetik:", error);
+    } finally {
+        typingWriteBusy = false;
+    }
+}
+
+function stopLocalTyping({ roomId = currentChatId, roomSnapshot = currentRoom } = {}) {
+    if (typingStopTimer) {
+        window.clearTimeout(typingStopTimer);
+        typingStopTimer = null;
+    }
+    lastTypingWriteAt = 0;
+    if (roomId) void writeTypingState(false, roomId, roomSnapshot);
+}
+
+function scheduleTypingStop() {
+    if (typingStopTimer) window.clearTimeout(typingStopTimer);
+    typingStopTimer = window.setTimeout(() => {
+        typingStopTimer = null;
+        lastTypingWriteAt = 0;
+        void writeTypingState(false);
+    }, TYPING_STOP_DELAY_MS);
+}
+
+function handleComposerTyping() {
+    const user = auth.currentUser;
+    if (!user || !currentChatId || currentRoom.kind === "none") return;
+
+    const hasText = Boolean(input?.value.trim());
+    if (!hasText) {
+        stopLocalTyping();
+        return;
+    }
+
+    const now = Date.now();
+    if (!typingWriteBusy && now - lastTypingWriteAt > 850) {
+        lastTypingWriteAt = now;
+        void writeTypingState(true);
+    }
+    scheduleTypingStop();
+}
+
+function typingTimestampToMillis(value) {
+    const date = timestampToDate(value);
+    return date ? date.getTime() : 0;
+}
+
+function renderTypingIndicator() {
+    if (!typingIndicator || !typingIndicatorText) return;
+    const me = auth.currentUser;
+    const now = Date.now();
+    const names = [];
+
+    latestTypingDocs.forEach((typingDoc) => {
+        const data = typingDoc.data?.() || typingDoc || {};
+        if (!data.isTyping || data.uid === me?.uid) return;
+        const updatedMillis = typingTimestampToMillis(data.updatedAt);
+        if (!updatedMillis || now - updatedMillis > TYPING_STALE_MS) return;
+        const name = String(data.name || "User").trim();
+        if (name && !names.includes(name)) names.push(name);
+    });
+
+    if (!names.length) {
+        typingIndicator.hidden = true;
+        typingIndicator.style.setProperty("display", "none", "important");
+        return;
+    }
+
+    let label = `${names[0]} sedang mengetik…`;
+    if (names.length === 2) label = `${names[0]} dan ${names[1]} sedang mengetik…`;
+    if (names.length > 2) label = `${names[0]} dan ${names.length - 1} lainnya sedang mengetik…`;
+
+    const keepBottom = isNearBottom();
+    typingIndicatorText.textContent = label;
+    typingIndicator.hidden = false;
+    typingIndicator.style.removeProperty("display");
+    if (keepBottom) scrollToBottom();
+}
+
+function listenToTyping(chatId) {
+    unsubscribeTyping?.();
+    unsubscribeTyping = null;
+    latestTypingDocs = [];
+    renderTypingIndicator();
+
+    if (!chatId) return;
+    const typingConstraints = [where("chatId", "==", chatId)];
+    if (currentRoom.kind === "group" && currentRoom.id) {
+        typingConstraints.push(where("groupId", "==", currentRoom.id));
+    }
+    const typingQuery = query(collection(db, "typing"), ...typingConstraints);
+    unsubscribeTyping = onSnapshot(typingQuery, (snapshot) => {
+        latestTypingDocs = snapshot.docs.slice();
+        renderTypingIndicator();
+    }, (error) => {
+        console.warn("Gagal memuat indikator mengetik:", error);
+        latestTypingDocs = [];
+        renderTypingIndicator();
+    });
+
+    if (typingFreshnessTimer) window.clearInterval(typingFreshnessTimer);
+    typingFreshnessTimer = window.setInterval(renderTypingIndicator, 1200);
+}
+
+input?.addEventListener("input", handleComposerTyping);
+input?.addEventListener("blur", () => stopLocalTyping());
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") stopLocalTyping();
+});
+window.addEventListener("pagehide", () => stopLocalTyping());
+
+// =========================
 // ENTER = SEND
 // =========================
 input?.addEventListener("keydown", (event) => {
@@ -678,6 +843,7 @@ sendBtn?.addEventListener("click", async () => {
         });
 
         input.value = "";
+        stopLocalTyping();
         clearReply();
         scrollToBottom();
     } catch (error) {
@@ -1346,6 +1512,7 @@ async function markMessagesAsRead(messageDocs = latestMessageDocs) {
 
     const unread = messageDocs.filter((messageDoc) => {
         const data = messageDoc.data();
+        if (messageIsHiddenForMe(data)) return false;
         return data.uid !== me.uid && !getReadBy(data).includes(me.uid);
     }).slice(0, 450);
 
@@ -1376,105 +1543,334 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("chat-directory-updated", updatePrivateRoomPresence);
 
+function reactionDocumentId(messageId, uid) {
+    return `${messageId}__${uid}`;
+}
+
+function getMessageReactions(messageId) {
+    return latestReactionDocs
+        .map((reactionDoc) => ({ id: reactionDoc.id, ...(reactionDoc.data?.() || reactionDoc) }))
+        .filter((reaction) => reaction.messageId === messageId && QUICK_REACTIONS.includes(reaction.emoji));
+}
+
+function renderReactionSummary(messageId) {
+    const me = auth.currentUser;
+    const reactions = getMessageReactions(messageId);
+    if (!reactions.length) return "";
+
+    const grouped = new Map();
+    reactions.forEach((reaction) => {
+        const item = grouped.get(reaction.emoji) || { count: 0, mine: false, names: [] };
+        item.count += 1;
+        item.mine = item.mine || reaction.uid === me?.uid;
+        if (reaction.name && !item.names.includes(reaction.name)) item.names.push(reaction.name);
+        grouped.set(reaction.emoji, item);
+    });
+
+    return `
+        <div class="message-reactions" aria-label="Reaksi pesan">
+            ${Array.from(grouped.entries()).map(([emoji, item]) => `
+                <button
+                    class="message-reaction-chip ${item.mine ? "is-mine" : ""}"
+                    type="button"
+                    data-reaction="${escapeHTML(emoji)}"
+                    title="${escapeHTML(item.names.join(", ") || "Reaksi")}" 
+                >
+                    <span>${escapeHTML(emoji)}</span><strong>${item.count}</strong>
+                </button>
+            `).join("")}
+        </div>
+    `;
+}
+
+async function toggleMessageReaction(messageDoc, emoji) {
+    const user = auth.currentUser;
+    const data = messageDoc?.data?.() || {};
+    if (!user || !messageDoc?.id || !QUICK_REACTIONS.includes(emoji) || data.deletedForAll) return;
+
+    const existing = getMessageReactions(messageDoc.id).find((reaction) => reaction.uid === user.uid);
+    const reactionRef = doc(db, "message_reactions", reactionDocumentId(messageDoc.id, user.uid));
+
+    try {
+        if (existing?.emoji === emoji) {
+            await deleteDoc(reactionRef);
+            return;
+        }
+
+        await setDoc(reactionRef, {
+            messageId: messageDoc.id,
+            chatId: data.chatId || currentChatId,
+            roomKind: data.roomKind || currentRoom.kind,
+            ...(data.groupId ? { groupId: data.groupId } : {}),
+            uid: user.uid,
+            name: user.displayName || user.email?.split("@")[0] || "User",
+            emoji,
+            createdAt: existing?.createdAt || serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error("Gagal menyimpan reaksi:", error);
+        showToast("Reaksi gagal disimpan. Periksa Firestore Rules v19.", "error");
+    }
+}
+
+function messageIsHiddenForMe(data = {}) {
+    const uid = auth.currentUser?.uid;
+    return Boolean(uid && Array.isArray(data.hiddenFor) && data.hiddenFor.includes(uid));
+}
+
+function openMessageAction(messageDoc) {
+    const data = messageDoc?.data?.() || {};
+    const me = auth.currentUser;
+    if (!messageDoc?.id || !me) return;
+
+    const isMine = data.uid === me.uid;
+    const deleted = data.deletedForAll === true;
+    activeMessageAction = { messageDoc, data, isMine };
+
+    if (messageActionTitle) messageActionTitle.textContent = isMine ? "Aksi Pesan Anda" : `Pesan dari ${getDisplayName(data)}`;
+    if (messageActionMeta) {
+        const time = formatTime(data.createdAt);
+        messageActionMeta.textContent = time || "Pilih tindakan untuk pesan ini.";
+    }
+
+    if (messageActionReplyBtn) messageActionReplyBtn.hidden = deleted;
+    if (messageActionEditBtn) messageActionEditBtn.hidden = !isMine || deleted || !String(data.text || "").trim();
+    if (messageActionDeleteAllBtn) messageActionDeleteAllBtn.hidden = !isMine || deleted;
+    if (messageActionDeleteMeBtn) messageActionDeleteMeBtn.hidden = false;
+    messageQuickReactions?.classList.toggle("is-disabled", deleted);
+    messageQuickReactions?.querySelectorAll("button").forEach((button) => {
+        button.disabled = deleted;
+        const myReaction = getMessageReactions(messageDoc.id).find((reaction) => reaction.uid === me.uid);
+        button.classList.toggle("is-selected", myReaction?.emoji === button.dataset.reaction);
+    });
+
+    openModal(messageActionModal);
+}
+
+async function hideMessageForMe(messageDoc) {
+    const user = auth.currentUser;
+    if (!user || !messageDoc?.id) return;
+    try {
+        await updateDoc(doc(db, "messages", messageDoc.id), {
+            hiddenFor: arrayUnion(user.uid)
+        });
+        showToast("Pesan dihapus untuk Anda.");
+    } catch (error) {
+        console.error("Gagal menghapus pesan untuk diri sendiri:", error);
+        showToast("Pesan gagal dihapus. Periksa Firestore Rules v19.", "error");
+    }
+}
+
+async function retractMessageForAll(messageDoc) {
+    const user = auth.currentUser;
+    const data = messageDoc?.data?.() || {};
+    if (!user || !messageDoc?.id || data.uid !== user.uid || data.deletedForAll) return;
+
+    try {
+        await updateDoc(doc(db, "messages", messageDoc.id), {
+            deletedForAll: true,
+            deletedAt: serverTimestamp(),
+            deletedBy: user.uid,
+            text: "",
+            attachment: null,
+            replyTo: null
+        });
+        showToast("Pesan ditarik untuk semua orang.");
+    } catch (error) {
+        console.error("Gagal menarik pesan:", error);
+        showToast("Pesan gagal ditarik. Periksa Firestore Rules v19.", "error");
+    }
+}
+
+function beginEditMessage(messageDoc) {
+    const data = messageDoc?.data?.() || {};
+    const user = auth.currentUser;
+    if (!user || data.uid !== user.uid || data.deletedForAll || !String(data.text || "").trim()) return;
+
+    activeEditMessage = messageDoc;
+    if (editMessageInput) editMessageInput.value = String(data.text || "");
+    openModal(editMessageModal);
+    window.setTimeout(() => {
+        editMessageInput?.focus();
+        editMessageInput?.setSelectionRange(editMessageInput.value.length, editMessageInput.value.length);
+    }, 80);
+}
+
+function renderCurrentMessages({ autoScroll = false } = {}) {
+    if (!messages) return;
+
+    const previousDistanceFromBottom = messages.scrollHeight - messages.scrollTop;
+    const me = auth.currentUser;
+    messages.innerHTML = "";
+
+    const visibleDocs = latestMessageDocs.filter((messageDoc) => !messageIsHiddenForMe(messageDoc.data() || {}));
+
+    visibleDocs.forEach((messageDoc) => {
+        const data = messageDoc.data();
+        if (!me) return;
+
+        const isMe = data.uid === me.uid;
+        const deleted = data.deletedForAll === true;
+        const name = getDisplayName(data);
+        const time = formatTime(data.createdAt);
+        const safeText = deleted ? "" : escapeHTML(data.text || "").replace(/\n/g, "<br>");
+        const hasPendingWrites = Boolean(messageDoc.metadata?.hasPendingWrites);
+        const editedLabel = !deleted && data.editedAt ? `<span class="message-edited">diedit</span>` : "";
+
+        const row = document.createElement("div");
+        row.id = `message-${messageDoc.id}`;
+        row.className = `message-row ${isMe ? "message-me" : "message-other"} ${deleted ? "message-is-deleted" : ""}`;
+        row.dataset.searchText = [
+            name,
+            deleted ? "pesan telah dihapus" : (data.text || ""),
+            deleted ? "" : (data.attachment?.name || ""),
+            data.replyTo?.name || "",
+            data.replyTo?.preview || ""
+        ].join(" ").toLowerCase();
+
+        row.innerHTML = `
+            <img class="message-avatar" src="${escapeHTML(avatarURL(data))}" alt="avatar">
+
+            <div class="message-content">
+                <div class="message-meta">
+                    <span class="message-name">${escapeHTML(name)}</span>
+                    ${time ? `<span class="message-time">${escapeHTML(time)}</span>` : ""}
+                    ${editedLabel}
+                </div>
+
+                ${deleted ? `
+                    <div class="message-deleted"><i class="fa-solid fa-ban"></i> Pesan telah dihapus</div>
+                ` : `
+                    ${renderReplyQuote(data.replyTo)}
+                    ${safeText ? `<div class="message-text">${safeText}</div>` : ""}
+                    ${renderAttachment(data.attachment)}
+                    ${renderReactionSummary(messageDoc.id)}
+                `}
+
+                ${isMe ? renderDeliveryStatus(data, hasPendingWrites) : ""}
+            </div>
+
+            <div class="message-actions">
+                ${!deleted ? `<button class="reply-message-btn" type="button" title="Balas pesan"><i class="fa-solid fa-reply"></i><span>Balas</span></button>` : ""}
+                ${!deleted ? `<button class="react-message-btn" type="button" title="Beri reaksi"><i class="fa-regular fa-face-smile"></i></button>` : ""}
+                <button class="more-message-btn" type="button" title="Aksi lainnya"><i class="fa-solid fa-ellipsis"></i></button>
+            </div>
+        `;
+
+        row.querySelector(".reply-message-btn")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setReply(messageDoc.id, data);
+        });
+
+        row.querySelector(".react-message-btn")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openMessageAction(messageDoc);
+        });
+
+        row.querySelector(".more-message-btn")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openMessageAction(messageDoc);
+        });
+
+        row.querySelector(".message-reply-quote")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            focusOriginalMessage(data.replyTo?.id);
+        });
+
+        row.querySelector(".image-preview-trigger")?.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const button = event.currentTarget;
+            openImagePreview(
+                button?.dataset.previewUrl || "",
+                button?.dataset.previewName || "Gambar",
+                button?.dataset.previewSize || "",
+                button
+            );
+        });
+
+        row.querySelectorAll(".message-reaction-chip").forEach((button) => {
+            button.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void toggleMessageReaction(messageDoc, button.dataset.reaction || "");
+            });
+        });
+
+        messages.appendChild(row);
+    });
+
+    if (!visibleDocs.length) {
+        messages.innerHTML = `
+            <div class="chat-empty-state compact-empty-state">
+                <span class="chat-empty-icon"><i class="fa-regular fa-message"></i></span>
+                <strong>Belum ada pesan</strong>
+                <span>Kirim pesan pertama untuk memulai percakapan.</span>
+            </div>
+        `;
+    }
+
+    applyMessageSearch();
+
+    if (autoScroll && !currentMessageSearch) {
+        scrollToBottom();
+    } else {
+        requestAnimationFrame(() => {
+            messages.scrollTop = Math.max(0, messages.scrollHeight - previousDistanceFromBottom);
+        });
+    }
+    scrollBottomBtn?.classList.toggle("show", !isNearBottom());
+}
+
+function listenToReactions(chatId) {
+    unsubscribeReactions?.();
+    unsubscribeReactions = null;
+    latestReactionDocs = [];
+
+    if (!chatId) return;
+    const reactionConstraints = [where("chatId", "==", chatId)];
+    if (currentRoom.kind === "group" && currentRoom.id) {
+        reactionConstraints.push(where("groupId", "==", currentRoom.id));
+    }
+    const reactionsQuery = query(collection(db, "message_reactions"), ...reactionConstraints);
+    unsubscribeReactions = onSnapshot(reactionsQuery, (snapshot) => {
+        latestReactionDocs = snapshot.docs.slice();
+        renderCurrentMessages({ autoScroll: false });
+    }, (error) => {
+        console.warn("Gagal memuat reaksi pesan:", error);
+        latestReactionDocs = [];
+        renderCurrentMessages({ autoScroll: false });
+    });
+}
+
 function listenToChat(chatId) {
     if (unsubscribeChat) unsubscribeChat();
+    listenToTyping(chatId);
+    listenToReactions(chatId);
 
-    const messagesQuery = query(
-        collection(db, "messages"),
-        where("chatId", "==", chatId)
-    );
+    const messageConstraints = [where("chatId", "==", chatId)];
+    if (currentRoom.kind === "group" && currentRoom.id) {
+        messageConstraints.push(where("groupId", "==", currentRoom.id));
+    }
+    const messagesQuery = query(collection(db, "messages"), ...messageConstraints);
 
     unsubscribeChat = onSnapshot(messagesQuery, { includeMetadataChanges: true }, (snapshot) => {
         if (!messages) return;
 
-        const shouldAutoScroll = isNearBottom();
-        messages.innerHTML = "";
-
-        const sortedDocs = snapshot.docs.slice().sort((a, b) => {
+        const shouldAutoScroll = isNearBottom() || isComposerInputFocused();
+        latestMessageDocs = snapshot.docs.slice().sort((a, b) => {
             const aTime = a.data().createdAt?.toMillis?.() || 0;
             const bTime = b.data().createdAt?.toMillis?.() || 0;
             return aTime - bTime;
         });
 
-        latestMessageDocs = sortedDocs;
-
-        sortedDocs.forEach((messageDoc) => {
-            const data = messageDoc.data();
-            const me = auth.currentUser;
-            if (!me) return;
-
-            const isMe = data.uid === me.uid;
-            const name = getDisplayName(data);
-            const time = formatTime(data.createdAt);
-            const safeText = escapeHTML(data.text || "").replace(/\n/g, "<br>");
-            const hasPendingWrites = Boolean(messageDoc.metadata?.hasPendingWrites);
-
-            const row = document.createElement("div");
-            row.id = `message-${messageDoc.id}`;
-            row.className = `message-row ${isMe ? "message-me" : "message-other"}`;
-            row.dataset.searchText = [
-                name,
-                data.text || "",
-                data.attachment?.name || "",
-                data.replyTo?.name || "",
-                data.replyTo?.preview || ""
-            ].join(" ").toLowerCase();
-
-            row.innerHTML = `
-                <img class="message-avatar" src="${escapeHTML(avatarURL(data))}" alt="avatar">
-
-                <div class="message-content">
-                    <div class="message-meta">
-                        <span class="message-name">${escapeHTML(name)}</span>
-                        ${time ? `<span class="message-time">${escapeHTML(time)}</span>` : ""}
-                    </div>
-
-                    ${renderReplyQuote(data.replyTo)}
-                    ${safeText ? `<div class="message-text">${safeText}</div>` : ""}
-                    ${renderAttachment(data.attachment)}
-
-                    ${isMe ? renderDeliveryStatus(data, hasPendingWrites) : ""}
-                </div>
-
-                <div class="message-actions">
-                    <button class="reply-message-btn" type="button" title="Balas pesan">
-                        <i class="fa-solid fa-reply"></i>
-                        <span>Balas</span>
-                    </button>
-                </div>
-            `;
-
-            row.querySelector(".reply-message-btn")?.addEventListener("click", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setReply(messageDoc.id, data);
-            });
-
-            row.querySelector(".message-reply-quote")?.addEventListener("click", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                focusOriginalMessage(data.replyTo?.id);
-            });
-
-            row.querySelector(".image-preview-trigger")?.addEventListener("click", (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                const button = event.currentTarget;
-                openImagePreview(
-                    button?.dataset.previewUrl || "",
-                    button?.dataset.previewName || "Gambar",
-                    button?.dataset.previewSize || "",
-                    button
-                );
-            });
-
-            messages.appendChild(row);
-        });
-
-        applyMessageSearch();
-        void markMessagesAsRead(sortedDocs);
-        if (shouldAutoScroll && !currentMessageSearch) scrollToBottom();
-        scrollBottomBtn?.classList.toggle("show", !isNearBottom());
+        renderCurrentMessages({ autoScroll: shouldAutoScroll });
+        void markMessagesAsRead(latestMessageDocs);
     }, (error) => {
         console.error("Gagal memuat chat:", error);
         messages.innerHTML = `
@@ -1569,6 +1965,88 @@ document.addEventListener("keydown", (event) => {
     } else if (event.key === "0") {
         event.preventDefault();
         setPreviewScale(1);
+    }
+});
+
+// =========================
+// MESSAGE ACTIONS
+// =========================
+messageQuickReactions?.querySelectorAll("button[data-reaction]").forEach((button) => {
+    button.addEventListener("click", () => {
+        const messageDoc = activeMessageAction?.messageDoc;
+        const emoji = button.dataset.reaction || "";
+        if (!messageDoc || !emoji) return;
+        void toggleMessageReaction(messageDoc, emoji);
+        closeModal();
+    });
+});
+
+messageActionReplyBtn?.addEventListener("click", () => {
+    const action = activeMessageAction;
+    if (!action?.messageDoc || action.data?.deletedForAll) return;
+    closeModal();
+    setReply(action.messageDoc.id, action.data);
+});
+
+messageActionEditBtn?.addEventListener("click", () => {
+    const messageDoc = activeMessageAction?.messageDoc;
+    if (!messageDoc) return;
+    closeModal();
+    window.setTimeout(() => beginEditMessage(messageDoc), 210);
+});
+
+messageActionDeleteMeBtn?.addEventListener("click", async () => {
+    const messageDoc = activeMessageAction?.messageDoc;
+    if (!messageDoc) return;
+    if (!window.confirm("Hapus pesan ini hanya dari tampilan Anda?")) return;
+    closeModal();
+    await hideMessageForMe(messageDoc);
+});
+
+messageActionDeleteAllBtn?.addEventListener("click", async () => {
+    const messageDoc = activeMessageAction?.messageDoc;
+    if (!messageDoc) return;
+    if (!window.confirm("Tarik pesan ini untuk semua orang? Isi pesan akan diganti menjadi ‘Pesan telah dihapus’.")) return;
+    closeModal();
+    await retractMessageForAll(messageDoc);
+});
+
+editMessageForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const user = auth.currentUser;
+    const messageDoc = activeEditMessage;
+    const original = messageDoc?.data?.() || {};
+    const text = editMessageInput?.value.trim() || "";
+
+    if (!user || !messageDoc?.id || original.uid !== user.uid || original.deletedForAll) {
+        showToast("Pesan ini tidak dapat diedit.", "error");
+        return;
+    }
+    if (!text) {
+        showToast("Isi pesan tidak boleh kosong.", "error");
+        editMessageInput?.focus();
+        return;
+    }
+    if (text === String(original.text || "").trim()) {
+        closeModal();
+        return;
+    }
+
+    try {
+        if (saveEditedMessageBtn) saveEditedMessageBtn.disabled = true;
+        await updateDoc(doc(db, "messages", messageDoc.id), {
+            text,
+            editedAt: serverTimestamp(),
+            editedBy: user.uid
+        });
+        closeModal();
+        activeEditMessage = null;
+        showToast("Pesan berhasil diedit.");
+    } catch (error) {
+        console.error("Gagal mengedit pesan:", error);
+        showToast("Pesan gagal diedit. Periksa Firestore Rules v19.", "error");
+    } finally {
+        if (saveEditedMessageBtn) saveEditedMessageBtn.disabled = false;
     }
 });
 
@@ -2336,8 +2814,20 @@ function setActiveChatControls(enabled) {
 }
 
 function showNoActiveChat() {
+    stopLocalTyping();
     unsubscribeChat?.();
     unsubscribeChat = null;
+    unsubscribeTyping?.();
+    unsubscribeTyping = null;
+    unsubscribeReactions?.();
+    unsubscribeReactions = null;
+    if (typingFreshnessTimer) {
+        window.clearInterval(typingFreshnessTimer);
+        typingFreshnessTimer = null;
+    }
+    latestTypingDocs = [];
+    latestReactionDocs = [];
+    renderTypingIndicator();
     currentChatId = "";
     latestMessageDocs = [];
     currentRoom = {
@@ -2384,6 +2874,10 @@ function roomAvatar(name, background = "2563eb") {
 window.openChat = function (target) {
     const me = auth.currentUser;
     if (!me) return;
+
+    const previousChatId = currentChatId;
+    const previousRoom = { ...currentRoom };
+    if (previousChatId) stopLocalTyping({ roomId: previousChatId, roomSnapshot: previousRoom });
 
     clearReply();
     closeEmojiPicker();
@@ -2458,6 +2952,8 @@ auth.onAuthStateChanged((user) => {
 
 backBtn?.addEventListener("click", () => {
     if (!isMobile()) return;
+    stopLocalTyping();
+    input?.blur();
     document.getElementById("chatPage")?.classList.remove("mobile-chat-open");
     if (backBtn) backBtn.style.display = "none";
 });

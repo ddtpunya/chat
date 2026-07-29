@@ -1,25 +1,23 @@
-CHAT DDT v18 — Complete Session Fix
+CHAT DDT v19 — Mobile Keyboard, Typing, Edit/Delete & Reactions
 
-Penyebab layar “Memulihkan sesi...” tidak berhenti:
-Paket v17 hanya berisi index.html, app.js, style.css, dan service-worker.js, sedangkan index.html tetap memanggil auth.js dan firebase.js. Bila dua file itu tidak ada/404, kode autentikasi tidak pernah berjalan.
+Perubahan utama:
+- Kolom ketik diposisikan presisi tepat di atas keyboard Safari/Chrome mobile.
+- Chat otomatis tetap berada pada pesan paling bawah ketika keyboard terbuka.
+- Indikator “Nama sedang mengetik…”.
+- Edit pesan sendiri dengan tanda “diedit”.
+- Hapus pesan untuk diri sendiri.
+- Tarik pesan untuk semua orang dengan keterangan “Pesan telah dihapus”.
+- Reaksi pesan: 👍 ❤️ 😂 😮.
 
-Pemasangan:
+Pemasangan WAJIB:
 1. Upload SEMUA file dalam folder ini ke folder root website.
-2. Jangan hanya upload index.html/style.css/app.js.
-3. Pastikan URL berikut dapat dibuka dan tidak 404:
-   - firebase.js
-   - auth.js
-   - app.js
-   - style.css
-4. Publish firestore.rules hanya bila rules yang aktif lebih lama dari v13.
-5. Setelah upload, hapus data situs/cache Safari atau hapus ikon Home Screen lama lalu pasang ulang.
-6. Login ulang satu kali.
+2. Publish firestore.rules v19 melalui Firebase Console > Firestore Database > Rules.
+3. Pastikan auth.js masih berisi seluruh Gmail yang diizinkan pada ALLOWED_EMAILS.
+4. Tutup semua tab CHAT DDT di Safari.
+5. Hapus cache/data situs atau hapus ikon Home Screen versi lama.
+6. Buka kembali situs, login satu kali, lalu pasang ulang ke Home Screen bila diperlukan.
 
-Catatan email login:
-Periksa daftar ALLOWED_EMAILS di auth.js dan tambahkan Gmail yang diizinkan sebelum upload.
-
-Pengaman v18:
-- Auth observer aktif tanpa menunggu redirect result.
-- Timeout auth internal 6,5 detik.
-- Watchdog HTML 8 detik jika modul auth/firebase gagal dimuat.
-- Service worker tidak gagal total hanya karena satu aset cache bermasalah.
+Catatan:
+- Hapus untuk diri sendiri menyembunyikan pesan hanya untuk akun tersebut.
+- Tarik untuk semua tidak menghapus dokumen pesan; isi diganti dengan penanda agar alur percakapan tetap jelas.
+- Indikator mengetik kedaluwarsa otomatis jika browser ditutup mendadak.
