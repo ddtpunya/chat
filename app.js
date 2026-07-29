@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-stable-send-scroll-v23";
+import { auth, db, storage } from "./firebase.js?v=20260729-zero-jump-mobile-v24";
 import {
     collection,
     addDoc,
@@ -23,33 +23,30 @@ import {
 
 let responsiveViewportFrame = 0;
 let stableMobileViewportHeight = 0;
-let composerSettleTimers = [];
-let postSendBottomLockUntil = 0;
-let postSendBottomLockTimer = 0;
-
-function isPostSendBottomLocked() {
-    return Date.now() < postSendBottomLockUntil;
-}
+let viewportSettleTimer = 0;
+let pendingSendClientCreatedAt = 0;
+let lastMessageVisualKey = "";
 
 function jumpMessageListToBottomNow() {
     const list = document.getElementById("messages");
     if (!list) return;
 
-    // Paksa layout selesai lalu lompat sekali tanpa animasi.
-    void list.offsetHeight;
+    // Satu perpindahan sinkron, tanpa smooth-scroll atau frame tambahan.
     list.scrollTop = Math.max(0, list.scrollHeight - list.clientHeight);
 }
 
-function beginPostSendBottomLock(duration = 1100) {
-    postSendBottomLockUntil = Date.now() + duration;
-    document.body?.classList.add("message-send-stable", "message-bottom-locked");
+function beginPostSendBottomLock(clientCreatedAt = Date.now()) {
+    pendingSendClientCreatedAt = Number(clientCreatedAt) || Date.now();
+    document.body?.classList.add("message-send-stable");
+}
 
-    if (postSendBottomLockTimer) window.clearTimeout(postSendBottomLockTimer);
-    postSendBottomLockTimer = window.setTimeout(() => {
-        postSendBottomLockUntil = 0;
-        postSendBottomLockTimer = 0;
-        document.body?.classList.remove("message-send-stable", "message-bottom-locked");
-    }, duration);
+function isPostSendBottomLocked() {
+    return pendingSendClientCreatedAt > 0;
+}
+
+function consumePostSendBottomLock() {
+    pendingSendClientCreatedAt = 0;
+    document.body?.classList.remove("message-send-stable", "message-bottom-locked");
 }
 
 function isMobileViewportWidth(width = window.innerWidth) {
@@ -100,15 +97,39 @@ function syncResponsiveViewport() {
 }
 
 function settleMobileComposer({ forceBottom = true } = {}) {
-    composerSettleTimers.forEach((timer) => window.clearTimeout(timer));
-    composerSettleTimers = [];
-
     if (!isMobileViewportWidth(window.visualViewport?.width || window.innerWidth)) return;
 
-    // Saat pesan baru saja dikirim, hindari rangkaian scroll berulang yang
-    // menimbulkan efek naik-turun. Cukup sinkronkan viewport dan lompat sekali.
-    if (isPostSendBottomLocked()) {
+    if (viewportSettleTimer) window.clearTimeout(viewportSettleTimer);
+    syncResponsiveViewport();
+
+    // Safari mengubah tinggi viewport beberapa kali ketika keyboard membuka.
+    // Debounce menjadi satu penyesuaian terakhir, bukan empat scroll beruntun.
+    viewportSettleTimer = window.setTimeout(() => {
+        viewportSettleTimer = 0;
         syncResponsiveViewport();
+
+        const chatPage = document.getElementById("chatPage");
+        if (!chatPage?.classList.contains("mobile-chat-open")) return;
+        if (forceBottom && !isPostSendBottomLocked()) jumpMessageListToBottomNow();
+    }, 110);
+}
+
+function scheduleResponsiveViewport() {
+    if (responsiveViewportFrame) cancelAnimationFrame(responsiveViewportFrame);
+
+    responsiveViewportFrame = requestAnimationFrame(() => {
+        responsiveViewportFrame = 0;
+        syncResponsiveViewport();
+
+        // Ketika pengiriman sedang menunggu snapshot lokal, jangan biarkan
+        // event viewport Safari memicu scroll tambahan.
+        if (isComposerInputFocused() && !isPostSendBottomLocked()) {
+            settleMobileComposer({ forceBottom: true });
+        }
+    });
+}
+
+syncResponsiveViewport();
         if (forceBottom) jumpMessageListToBottomNow();
         return;
     }
@@ -146,7 +167,6 @@ function scheduleResponsiveViewport() {
 syncResponsiveViewport();
 window.addEventListener("resize", scheduleResponsiveViewport, { passive: true });
 window.visualViewport?.addEventListener("resize", scheduleResponsiveViewport, { passive: true });
-window.visualViewport?.addEventListener("scroll", scheduleResponsiveViewport, { passive: true });
 window.addEventListener("orientationchange", () => {
     stableMobileViewportHeight = 0;
     scheduleResponsiveViewport();
@@ -785,11 +805,9 @@ function renderTypingIndicator() {
     if (names.length === 2) label = `${names[0]} dan ${names[1]} sedang mengetik…`;
     if (names.length > 2) label = `${names[0]} dan ${names.length - 1} lainnya sedang mengetik…`;
 
-    const keepBottom = isNearBottom();
     typingIndicatorText.textContent = label;
     typingIndicator.hidden = false;
     typingIndicator.style.removeProperty("display");
-    if (keepBottom) scrollToBottom();
 }
 
 function listenToTyping(chatId) {
@@ -870,29 +888,25 @@ sendBtn?.addEventListener("click", async () => {
 
     const targetChatId = currentChatId;
     const replyData = activeReply ? { ...activeReply } : null;
-    const keepKeyboardFocus = isComposerInputFocused();
     const previousValue = input?.value || text;
+    const messagePayload = {
+        ...createMessageBase(user, targetChatId, replyData),
+        text
+    };
 
     try {
         sendBtn.disabled = true;
-        beginPostSendBottomLock(1200);
+        beginPostSendBottomLock(messagePayload.clientCreatedAt);
 
-        // Bersihkan composer sebelum write supaya tinggi area chat hanya berubah sekali.
+        // Tidak memanggil focus() atau scroll di sini. Snapshot lokal Firestore
+        // akan memasukkan pesan, lalu renderer melakukan tepat satu lompatan bawah.
         input.value = "";
         stopLocalTyping();
         clearReply();
-        jumpMessageListToBottomNow();
 
-        if (keepKeyboardFocus) input.focus({ preventScroll: true });
-
-        await addDoc(collection(db, "messages"), {
-            ...createMessageBase(user, targetChatId, replyData),
-            text
-        });
-
-        // Satu-satunya perpindahan yang diinginkan: langsung ke pesan paling bawah.
-        jumpMessageListToBottomNow();
+        await addDoc(collection(db, "messages"), messagePayload);
     } catch (error) {
+        consumePostSendBottomLock();
         console.error("Gagal mengirim pesan:", error);
         if (input && currentChatId === targetChatId && !input.value) {
             input.value = previousValue;
@@ -1679,7 +1693,7 @@ function openMessageAction(messageDoc) {
 
     if (messageActionTitle) messageActionTitle.textContent = isMine ? "Aksi Pesan Anda" : `Pesan dari ${getDisplayName(data)}`;
     if (messageActionMeta) {
-        const time = formatTime(data.createdAt);
+        const time = formatMessageTime(data);
         messageActionMeta.textContent = time || "Pilih tindakan untuk pesan ini.";
     }
 
@@ -1787,6 +1801,70 @@ function bindMessageLongPress(row, messageDoc) {
     });
 }
 
+function formatMessageTime(data = {}) {
+    if (data.createdAt && typeof data.createdAt.toDate === "function") {
+        return formatTime(data.createdAt);
+    }
+
+    const localTime = Number(data.clientCreatedAt) || 0;
+    if (!localTime) return "";
+    return new Date(localTime).toLocaleString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    }).replace(".", ":");
+}
+
+function buildMessageVisualKey(messageDocs = []) {
+    const me = auth.currentUser;
+    return messageDocs.map((messageDoc) => {
+        const data = messageDoc.data() || {};
+        const hidden = Array.isArray(data.hiddenFor) && me?.uid ? data.hiddenFor.includes(me.uid) : false;
+        return JSON.stringify([
+            messageDoc.id,
+            hidden,
+            data.uid || "",
+            data.text || "",
+            Boolean(data.deletedForAll),
+            data.editedAt?.toMillis?.() || 0,
+            data.attachment?.url || "",
+            data.attachment?.name || "",
+            data.replyTo?.id || "",
+            data.replyTo?.preview || ""
+        ]);
+    }).join("|");
+}
+
+function patchMessageMetadata(messageDocs = []) {
+    messageDocs.forEach((messageDoc) => {
+        const row = document.getElementById(`message-${messageDoc.id}`);
+        if (!row) return;
+
+        const data = messageDoc.data() || {};
+        const timeNode = row.querySelector(".message-time");
+        if (timeNode) timeNode.textContent = formatMessageTime(data);
+
+        const statusNode = row.querySelector(".message-seen");
+        if (statusNode && data.uid === auth.currentUser?.uid) {
+            const holder = document.createElement("div");
+            holder.innerHTML = renderDeliveryStatus(data, Boolean(messageDoc.metadata?.hasPendingWrites)).trim();
+            const nextStatus = holder.firstElementChild;
+            if (nextStatus) statusNode.replaceWith(nextStatus);
+        }
+    });
+}
+
+function snapshotContainsPendingSentMessage(messageDocs = []) {
+    if (!pendingSendClientCreatedAt) return false;
+    const me = auth.currentUser;
+    return messageDocs.some((messageDoc) => {
+        const data = messageDoc.data() || {};
+        return data.uid === me?.uid && Number(data.clientCreatedAt) === pendingSendClientCreatedAt;
+    });
+}
+
 function renderCurrentMessages({ autoScroll = false } = {}) {
     if (!messages) return;
 
@@ -1799,7 +1877,7 @@ function renderCurrentMessages({ autoScroll = false } = {}) {
     const anchorId = firstVisibleRow?.id || "";
     const anchorOffset = firstVisibleRow ? firstVisibleRow.getBoundingClientRect().top - messages.getBoundingClientRect().top : 0;
     const me = auth.currentUser;
-    messages.innerHTML = "";
+    const fragment = document.createDocumentFragment();
 
     const visibleDocs = latestMessageDocs.filter((messageDoc) => !messageIsHiddenForMe(messageDoc.data() || {}));
 
@@ -1832,7 +1910,7 @@ function renderCurrentMessages({ autoScroll = false } = {}) {
             <div class="message-content">
                 <div class="message-meta">
                     <span class="message-name">${escapeHTML(name)}</span>
-                    ${time ? `<span class="message-time">${escapeHTML(time)}</span>` : ""}
+                    <span class="message-time">${escapeHTML(time)}</span>
                     ${editedLabel}
                 </div>
 
@@ -1900,24 +1978,27 @@ function renderCurrentMessages({ autoScroll = false } = {}) {
         });
 
         bindMessageLongPress(row, messageDoc);
-        messages.appendChild(row);
+        fragment.appendChild(row);
     });
 
     if (!visibleDocs.length) {
-        messages.innerHTML = `
-            <div class="chat-empty-state compact-empty-state">
-                <span class="chat-empty-icon"><i class="fa-regular fa-message"></i></span>
-                <strong>Belum ada pesan</strong>
-                <span>Kirim pesan pertama untuk memulai percakapan.</span>
-            </div>
+        const empty = document.createElement("div");
+        empty.className = "chat-empty-state compact-empty-state";
+        empty.innerHTML = `
+            <span class="chat-empty-icon"><i class="fa-regular fa-message"></i></span>
+            <strong>Belum ada pesan</strong>
+            <span>Kirim pesan pertama untuk memulai percakapan.</span>
         `;
+        fragment.appendChild(empty);
     }
 
+    messages.replaceChildren(fragment);
     applyMessageSearch();
 
     if (lockToBottom && !currentMessageSearch) {
-        // Sinkron, tanpa smooth scroll dan tanpa frame kedua.
+        // Tepat satu lompatan setelah pesan baru sudah berada di DOM.
         jumpMessageListToBottomNow();
+        if (isPostSendBottomLocked()) consumePostSendBottomLock();
     } else if (anchorId) {
         requestAnimationFrame(() => {
             const anchor = document.getElementById(anchorId);
@@ -1952,6 +2033,8 @@ function listenToReactions(chatId) {
 
 function listenToChat(chatId) {
     if (unsubscribeChat) unsubscribeChat();
+    lastMessageVisualKey = "";
+    consumePostSendBottomLock();
     listenToTyping(chatId);
     listenToReactions(chatId);
 
@@ -1961,10 +2044,9 @@ function listenToChat(chatId) {
     }
     const messagesQuery = query(collection(db, "messages"), ...messageConstraints);
 
-    unsubscribeChat = onSnapshot(messagesQuery, { includeMetadataChanges: true }, (snapshot) => {
+    unsubscribeChat = onSnapshot(messagesQuery, (snapshot) => {
         if (!messages) return;
 
-        const shouldAutoScroll = isPostSendBottomLocked() || isNearBottom() || isComposerInputFocused();
         latestMessageDocs = snapshot.docs.slice().sort((a, b) => {
             const aData = a.data() || {};
             const bData = b.data() || {};
@@ -1974,7 +2056,23 @@ function listenToChat(chatId) {
             return a.id.localeCompare(b.id);
         });
 
-        renderCurrentMessages({ autoScroll: shouldAutoScroll });
+        const containsSentMessage = snapshotContainsPendingSentMessage(latestMessageDocs);
+        const nextVisualKey = buildMessageVisualKey(latestMessageDocs);
+        const structureChanged = nextVisualKey !== lastMessageVisualKey;
+
+        if (structureChanged) {
+            lastMessageVisualKey = nextVisualKey;
+            renderCurrentMessages({ autoScroll: containsSentMessage || isNearBottom() });
+        } else {
+            // ACK serverTimestamp/read receipt hanya memperbarui label pada DOM.
+            // Tidak merender ulang daftar dan tidak mengubah scrollTop.
+            patchMessageMetadata(latestMessageDocs);
+            if (containsSentMessage) {
+                jumpMessageListToBottomNow();
+                consumePostSendBottomLock();
+            }
+        }
+
         void markMessagesAsRead(latestMessageDocs);
     }, (error) => {
         console.error("Gagal memuat chat:", error);

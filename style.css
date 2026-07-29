@@ -5936,7 +5936,7 @@ body.mobile-theme-lavender {
 
 
 /* =========================================================
-   V23 — stable one-step send scrolling
+   V24 — stable one-step send scrolling
    ========================================================= */
 @media (max-width: 768px) {
     body.message-bottom-locked #messages {
@@ -5958,5 +5958,81 @@ body.mobile-theme-lavender {
 
     body.message-bottom-locked .message-row.is-long-pressing {
         transform: none !important;
+    }
+}
+
+
+/* =========================================================
+   V24 — zero-jump mobile message rendering
+   ========================================================= */
+@media (max-width: 768px) {
+    #chatPage,
+    #chatPage .chat,
+    #messages,
+    .composer-wrap,
+    .composer-wrap .input-box,
+    .message-row,
+    .message-content,
+    .message-meta,
+    .message-seen {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    #messages {
+        scroll-behavior: auto !important;
+        overflow-anchor: none !important;
+        overscroll-behavior-y: contain !important;
+        contain: layout paint !important;
+    }
+
+    #chatPage.mobile-chat-open .chat {
+        display: grid !important;
+        grid-template-rows: auto minmax(0, 1fr) auto !important;
+        overflow: hidden !important;
+    }
+
+    .composer-wrap {
+        position: relative !important;
+        grid-row: 3 !important;
+        transform: none !important;
+        will-change: auto !important;
+    }
+
+    /* Indikator mengetik menjadi overlay, sehingga muncul/hilang tanpa
+       mengubah tinggi composer atau mendorong chat naik-turun. */
+    .typing-indicator {
+        position: absolute !important;
+        left: 9px !important;
+        right: 9px !important;
+        bottom: calc(100% + 4px) !important;
+        z-index: 5 !important;
+        min-height: 24px !important;
+        margin: 0 !important;
+        padding: 4px 10px !important;
+        pointer-events: none !important;
+        box-shadow: 0 6px 16px rgba(0,0,0,.16) !important;
+    }
+
+    body.message-send-stable #messages,
+    body.message-send-stable .chat,
+    body.message-send-stable .composer-wrap {
+        scroll-behavior: auto !important;
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+
+    .message-time {
+        min-width: 72px !important;
+        min-height: 11px !important;
+        display: inline-block !important;
+        white-space: nowrap !important;
+    }
+
+    .message-seen {
+        min-width: 72px !important;
+        min-height: 13px !important;
+        line-height: 13px !important;
     }
 }

@@ -1,4 +1,4 @@
-CHAT DDT Stable Send Scroll v23
+CHAT DDT Stable Send Scroll v24
 
 PERBAIKAN:
 - Setelah mengirim pesan, chat langsung berpindah satu kali ke posisi paling bawah.
@@ -8,7 +8,7 @@ PERBAIKAN:
 
 PEMASANGAN:
 1. Salin kembali daftar ALLOWED_EMAILS dari auth.js lama bila diperlukan.
-2. Timpa seluruh file website dengan isi folder v23.
+2. Timpa seluruh file website dengan isi folder v24.
 3. Upload/publish ulang.
 4. Tutup tab lama lalu buka kembali.
 5. Jika memakai Home Screen/PWA, hapus aplikasi lama dan pasang ulang bila cache lama masih muncul.
