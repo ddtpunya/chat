@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-mobile-typing-message-actions-v19";
+import { auth, db, storage } from "./firebase.js?v=20260729-mobile-familiar-ui-v20";
 import {
     collection,
     addDoc,
@@ -172,6 +172,12 @@ const messageSearchInput = document.getElementById("messageSearchInput");
 const messageSearchStatus = document.getElementById("messageSearchStatus");
 const clearMessageSearchBtn = document.getElementById("clearMessageSearchBtn");
 const profileSettingsBtn = document.getElementById("profileSettingsBtn");
+const mobileProfileBtn = document.getElementById("mobileProfileBtn");
+const mobileSearchFocusBtn = document.getElementById("mobileSearchFocusBtn");
+const mobileNewGroupNav = document.getElementById("mobileNewGroupNav");
+const mobileSettingsNav = document.getElementById("mobileSettingsNav");
+const mobileProfileRequestBadge = document.getElementById("mobileProfileRequestBadge");
+const mobileSettingsRequestBadge = document.getElementById("mobileSettingsRequestBadge");
 const chatSettingsBtn = document.getElementById("chatSettingsBtn");
 const profileFriendsBtn = document.getElementById("profileFriendsBtn");
 const profileFriendRequestBadge = document.getElementById("profileFriendRequestBadge");
@@ -1610,7 +1616,7 @@ async function toggleMessageReaction(messageDoc, emoji) {
         });
     } catch (error) {
         console.error("Gagal menyimpan reaksi:", error);
-        showToast("Reaksi gagal disimpan. Periksa Firestore Rules v19.", "error");
+        showToast("Reaksi gagal disimpan. Periksa Firestore Rules v20.", "error");
     }
 }
 
@@ -1658,7 +1664,7 @@ async function hideMessageForMe(messageDoc) {
         showToast("Pesan dihapus untuk Anda.");
     } catch (error) {
         console.error("Gagal menghapus pesan untuk diri sendiri:", error);
-        showToast("Pesan gagal dihapus. Periksa Firestore Rules v19.", "error");
+        showToast("Pesan gagal dihapus. Periksa Firestore Rules v20.", "error");
     }
 }
 
@@ -1679,7 +1685,7 @@ async function retractMessageForAll(messageDoc) {
         showToast("Pesan ditarik untuk semua orang.");
     } catch (error) {
         console.error("Gagal menarik pesan:", error);
-        showToast("Pesan gagal ditarik. Periksa Firestore Rules v19.", "error");
+        showToast("Pesan gagal ditarik. Periksa Firestore Rules v20.", "error");
     }
 }
 
@@ -1695,6 +1701,47 @@ function beginEditMessage(messageDoc) {
         editMessageInput?.focus();
         editMessageInput?.setSelectionRange(editMessageInput.value.length, editMessageInput.value.length);
     }, 80);
+}
+
+function bindMessageLongPress(row, messageDoc) {
+    if (!row || !messageDoc) return;
+
+    let timer = null;
+    let startX = 0;
+    let startY = 0;
+
+    const cancel = () => {
+        if (timer) window.clearTimeout(timer);
+        timer = null;
+        row.classList.remove("is-long-pressing");
+    };
+
+    row.addEventListener("pointerdown", (event) => {
+        if (!isMobile() || event.pointerType === "mouse") return;
+        if (event.target instanceof Element && event.target.closest("button, a, input, textarea")) return;
+        startX = event.clientX;
+        startY = event.clientY;
+        row.classList.add("is-long-pressing");
+        timer = window.setTimeout(() => {
+            timer = null;
+            row.classList.remove("is-long-pressing");
+            navigator.vibrate?.(18);
+            openMessageAction(messageDoc);
+        }, 520);
+    }, { passive: true });
+
+    row.addEventListener("pointermove", (event) => {
+        if (!timer) return;
+        if (Math.abs(event.clientX - startX) > 12 || Math.abs(event.clientY - startY) > 12) cancel();
+    }, { passive: true });
+    row.addEventListener("pointerup", cancel, { passive: true });
+    row.addEventListener("pointercancel", cancel, { passive: true });
+    row.addEventListener("contextmenu", (event) => {
+        if (!isMobile()) return;
+        event.preventDefault();
+        cancel();
+        openMessageAction(messageDoc);
+    });
 }
 
 function renderCurrentMessages({ autoScroll = false } = {}) {
@@ -1802,6 +1849,7 @@ function renderCurrentMessages({ autoScroll = false } = {}) {
             });
         });
 
+        bindMessageLongPress(row, messageDoc);
         messages.appendChild(row);
     });
 
@@ -2044,7 +2092,7 @@ editMessageForm?.addEventListener("submit", async (event) => {
         showToast("Pesan berhasil diedit.");
     } catch (error) {
         console.error("Gagal mengedit pesan:", error);
-        showToast("Pesan gagal diedit. Periksa Firestore Rules v19.", "error");
+        showToast("Pesan gagal diedit. Periksa Firestore Rules v20.", "error");
     } finally {
         if (saveEditedMessageBtn) saveEditedMessageBtn.disabled = false;
     }
@@ -2167,7 +2215,7 @@ function updateFriendRequestBadge() {
 
     const badgeText = total > 99 ? "99+" : String(total);
 
-    [profileFriendRequestBadge, settingsFriendRequestBadge].forEach((badge) => {
+    [profileFriendRequestBadge, settingsFriendRequestBadge, mobileProfileRequestBadge, mobileSettingsRequestBadge].forEach((badge) => {
         if (!badge) return;
         badge.textContent = badgeText;
         badge.hidden = total === 0;
@@ -2722,7 +2770,7 @@ mobileThemeSelect?.addEventListener("change", () => {
     applyMobileTheme(mobileThemeSelect.value);
 });
 
-profileSettingsBtn?.addEventListener("click", () => {
+function openProfileSettings() {
     const user = auth.currentUser;
     if (!user) return;
     if (profileDisplayName) profileDisplayName.value = user.displayName || user.email?.split("@")[0] || "";
@@ -2730,6 +2778,14 @@ profileSettingsBtn?.addEventListener("click", () => {
     if (compactMessagesToggle) compactMessagesToggle.checked = document.body.classList.contains("compact-messages");
     if (mobileThemeSelect) mobileThemeSelect.value = normalizeMobileTheme(localStorage.getItem(MOBILE_THEME_KEY) || document.body.dataset.mobileTheme);
     openModal(profileSettingsModal);
+}
+
+profileSettingsBtn?.addEventListener("click", openProfileSettings);
+mobileProfileBtn?.addEventListener("click", openProfileSettings);
+mobileSettingsNav?.addEventListener("click", openProfileSettings);
+mobileNewGroupNav?.addEventListener("click", () => createGroupBtn?.click());
+mobileSearchFocusBtn?.addEventListener("click", () => {
+    document.getElementById("sidebarSearchInput")?.focus();
 });
 
 profileSettingsForm?.addEventListener("submit", async (event) => {
@@ -2957,6 +3013,24 @@ backBtn?.addEventListener("click", () => {
     document.getElementById("chatPage")?.classList.remove("mobile-chat-open");
     if (backBtn) backBtn.style.display = "none";
 });
+
+let mobileBackGesture = null;
+chatArea?.addEventListener("pointerdown", (event) => {
+    if (!isMobile() || !document.getElementById("chatPage")?.classList.contains("mobile-chat-open")) return;
+    if (event.clientX > 28) return;
+    mobileBackGesture = { x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+}, { passive: true });
+
+chatArea?.addEventListener("pointerup", (event) => {
+    const start = mobileBackGesture;
+    mobileBackGesture = null;
+    if (!start || start.pointerId !== event.pointerId) return;
+    const deltaX = event.clientX - start.x;
+    const deltaY = Math.abs(event.clientY - start.y);
+    if (deltaX > 72 && deltaY < 55) backBtn?.click();
+}, { passive: true });
+
+chatArea?.addEventListener("pointercancel", () => { mobileBackGesture = null; }, { passive: true });
 
 window.addEventListener("resize", () => {
     syncResponsiveViewport();

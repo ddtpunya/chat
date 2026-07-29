@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260729-mobile-typing-message-actions-v19">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-mobile-typing-message-actions-v19">
+    <link rel="manifest" href="manifest.webmanifest?v=20260729-mobile-familiar-ui-v20">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-mobile-familiar-ui-v20">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -69,13 +69,13 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260729-mobile-typing-message-actions-v19", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260729-mobile-familiar-ui-v20", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260729-mobile-typing-message-actions-v19">
+    <link rel="stylesheet" href="style.css?v=20260729-mobile-familiar-ui-v20">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -105,6 +105,23 @@
 
 <div id="chatPage" style="display:none;">
     <aside class="sidebar">
+        <header class="mobile-home-header" aria-label="Header daftar chat">
+            <div class="mobile-home-heading">
+                <span class="mobile-home-kicker">CHAT DDT</span>
+                <h1>Pesan</h1>
+                <small id="mobileHomeSubtitle">Teman dan grup Anda</small>
+            </div>
+            <div class="mobile-home-actions">
+                <button id="mobileSearchFocusBtn" class="mobile-header-btn" type="button" title="Cari chat" aria-label="Cari chat">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <button id="mobileProfileBtn" class="mobile-profile-btn" type="button" title="Buka pengaturan" aria-label="Buka pengaturan">
+                    <img id="mobileProfilePhoto" src="https://ui-avatars.com/api/?name=DDT" alt="Profil">
+                    <span id="mobileProfileRequestBadge" class="mobile-corner-badge" hidden>0</span>
+                </button>
+            </div>
+        </header>
+
         <div class="profile-card">
             <div class="profile-left">
                 <img id="myPhoto" src="https://ui-avatars.com/api/?name=DDT" class="profile-avatar" alt="My Profile">
@@ -135,6 +152,15 @@
             </label>
         </div>
 
+        <div class="mobile-filter-tabs" role="tablist" aria-label="Filter daftar chat">
+            <button id="mobileAllChatsTab" class="mobile-filter-tab active" type="button" role="tab" aria-selected="true">Semua</button>
+            <button id="mobileUnreadChatsTab" class="mobile-filter-tab" type="button" role="tab" aria-selected="false">
+                Belum dibaca
+                <span id="mobileUnreadFilterBadge" class="mobile-tab-badge" hidden>0</span>
+            </button>
+            <button id="mobileGroupsChatsTab" class="mobile-filter-tab" type="button" role="tab" aria-selected="false">Grup</button>
+        </div>
+
         <button id="groupsBtn" class="groups-btn" type="button" aria-pressed="false">
             <i class="fa-regular fa-message"></i>
             <span class="button-label">Groups</span>
@@ -147,6 +173,25 @@
         </button>
 
         <div id="userList" class="group-list" aria-live="polite"></div>
+
+        <nav class="mobile-bottom-nav" aria-label="Navigasi utama mobile">
+            <button id="mobileChatsNav" class="mobile-nav-item active" type="button">
+                <span class="mobile-nav-icon"><i class="fa-solid fa-comment-dots"></i><span id="mobileChatsUnreadBadge" class="mobile-nav-badge" hidden>0</span></span>
+                <span>Chat</span>
+            </button>
+            <button id="mobileGroupsNav" class="mobile-nav-item" type="button">
+                <span class="mobile-nav-icon"><i class="fa-solid fa-user-group"></i></span>
+                <span>Grup</span>
+            </button>
+            <button id="mobileNewGroupNav" class="mobile-nav-item mobile-nav-create" type="button" title="Buat grup baru">
+                <span class="mobile-nav-create-icon"><i class="fa-solid fa-plus"></i></span>
+                <span>Baru</span>
+            </button>
+            <button id="mobileSettingsNav" class="mobile-nav-item" type="button">
+                <span class="mobile-nav-icon"><i class="fa-solid fa-gear"></i><span id="mobileSettingsRequestBadge" class="mobile-nav-badge" hidden>0</span></span>
+                <span>Setelan</span>
+            </button>
+        </nav>
     </aside>
 
     <div class="sidebar-divider">
@@ -644,8 +689,8 @@
 })();
 </script>
 
-<script type="module" src="firebase.js?v=20260729-mobile-typing-message-actions-v19"></script>
-<script type="module" src="auth.js?v=20260729-mobile-typing-message-actions-v19"></script>
-<script type="module" src="app.js?v=20260729-mobile-typing-message-actions-v19"></script>
+<script type="module" src="firebase.js?v=20260729-mobile-familiar-ui-v20"></script>
+<script type="module" src="auth.js?v=20260729-mobile-familiar-ui-v20"></script>
+<script type="module" src="app.js?v=20260729-mobile-familiar-ui-v20"></script>
 </body>
 </html>

@@ -19,7 +19,7 @@ import {
     deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js?v=20260729-mobile-typing-message-actions-v19";
+import { auth, db } from "./firebase.js?v=20260729-mobile-familiar-ui-v20";
 
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.
@@ -40,6 +40,15 @@ const loginPage = document.getElementById("loginPage");
 const chatPage = document.getElementById("chatPage");
 const sidebarSearchInput = document.getElementById("sidebarSearchInput");
 const groupsBtn = document.getElementById("groupsBtn");
+const mobileProfilePhoto = document.getElementById("mobileProfilePhoto");
+const mobileHomeSubtitle = document.getElementById("mobileHomeSubtitle");
+const mobileAllChatsTab = document.getElementById("mobileAllChatsTab");
+const mobileUnreadChatsTab = document.getElementById("mobileUnreadChatsTab");
+const mobileGroupsChatsTab = document.getElementById("mobileGroupsChatsTab");
+const mobileChatsNav = document.getElementById("mobileChatsNav");
+const mobileGroupsNav = document.getElementById("mobileGroupsNav");
+const mobileUnreadFilterBadge = document.getElementById("mobileUnreadFilterBadge");
+const mobileChatsUnreadBadge = document.getElementById("mobileChatsUnreadBadge");
 
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
@@ -503,6 +512,45 @@ function matchesSearch(...parts) {
     return parts.join(" ").toLowerCase().includes(queryText);
 }
 
+function formatMobileCount(value = 0) {
+    const total = Math.max(0, Number(value) || 0);
+    return total > 99 ? "99+" : String(total);
+}
+
+function getTotalPrivateUnread() {
+    return Array.from(privateUnreadCounts.values()).reduce((sum, value) => sum + (Number(value) || 0), 0);
+}
+
+function syncMobileDirectoryUI() {
+    const unreadTotal = getTotalPrivateUnread();
+    const unreadText = formatMobileCount(unreadTotal);
+
+    [mobileUnreadFilterBadge, mobileChatsUnreadBadge].forEach((badge) => {
+        if (!badge) return;
+        badge.textContent = unreadText;
+        badge.hidden = unreadTotal === 0;
+    });
+
+    const tabs = [
+        [mobileAllChatsTab, directoryMode === "all"],
+        [mobileUnreadChatsTab, directoryMode === "unread"],
+        [mobileGroupsChatsTab, directoryMode === "groups"]
+    ];
+    tabs.forEach(([button, active]) => {
+        button?.classList.toggle("active", active);
+        button?.setAttribute("aria-selected", String(active));
+    });
+
+    mobileChatsNav?.classList.toggle("active", directoryMode !== "groups");
+    mobileGroupsNav?.classList.toggle("active", directoryMode === "groups");
+
+    if (mobileHomeSubtitle) {
+        const friendTotal = getAcceptedFriendUidSet().size;
+        const groupTotal = directoryGroups.length;
+        mobileHomeSubtitle.textContent = `${friendTotal} teman · ${groupTotal} grup`;
+    }
+}
+
 function renderDirectory() {
     if (!userList || !currentUser) return;
 
@@ -520,11 +568,15 @@ function renderDirectory() {
             });
     }
 
-    if (directoryMode === "all") {
+    if (directoryMode === "all" || directoryMode === "unread") {
         const acceptedFriendUids = getAcceptedFriendUidSet();
 
         directoryUsers
-            .filter((user) => user.uid !== currentUser.uid && acceptedFriendUids.has(user.uid))
+            .filter((user) => {
+                if (user.uid === currentUser.uid || !acceptedFriendUids.has(user.uid)) return false;
+                if (directoryMode !== "unread") return true;
+                return getPrivateUnreadCount(directChatId(currentUser.uid, user.uid)) > 0;
+            })
             .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "id"))
             .forEach((user) => {
                 if (!matchesSearch(user.name || "", "teman", "private chat")) return;
@@ -536,7 +588,9 @@ function renderDirectory() {
     if (!visibleCount) {
         const empty = document.createElement("div");
         empty.className = "directory-empty";
-        empty.innerHTML = `<i class="fa-regular fa-folder-open"></i><span>Belum ada chat. Tambahkan teman melalui Pengaturan atau buat grup baru.</span>`;
+        empty.innerHTML = directoryMode === "unread"
+            ? `<i class="fa-solid fa-check-double"></i><span>Semua pesan sudah dibaca.</span>`
+            : `<i class="fa-regular fa-folder-open"></i><span>Belum ada chat. Tambahkan teman melalui Pengaturan atau buat grup baru.</span>`;
         userList.appendChild(empty);
     }
 
@@ -550,6 +604,7 @@ function renderDirectory() {
     window.chatDirectoryUserCount = directoryUsers.length;
     window.chatFriendCount = acceptedFriendUids.size;
     window.chatPrivateUnreadCounts = Object.fromEntries(privateUnreadCounts);
+    syncMobileDirectoryUI();
     window.dispatchEvent(new CustomEvent("chat-directory-updated"));
     window.dispatchEvent(new CustomEvent("chat-friendships-updated"));
 }
@@ -562,6 +617,19 @@ groupsBtn?.addEventListener("click", () => {
     groupsBtn.setAttribute("aria-pressed", String(directoryMode === "groups"));
     renderDirectory();
 });
+
+function setMobileDirectoryMode(mode) {
+    directoryMode = ["all", "unread", "groups"].includes(mode) ? mode : "all";
+    groupsBtn?.classList.toggle("active", directoryMode === "groups");
+    groupsBtn?.setAttribute("aria-pressed", String(directoryMode === "groups"));
+    renderDirectory();
+}
+
+mobileAllChatsTab?.addEventListener("click", () => setMobileDirectoryMode("all"));
+mobileUnreadChatsTab?.addEventListener("click", () => setMobileDirectoryMode("unread"));
+mobileGroupsChatsTab?.addEventListener("click", () => setMobileDirectoryMode("groups"));
+mobileChatsNav?.addEventListener("click", () => setMobileDirectoryMode("all"));
+mobileGroupsNav?.addEventListener("click", () => setMobileDirectoryMode("groups"));
 
 window.setActiveSidebarChat = (chatId) => {
     activeChatId = chatId || "";
@@ -698,7 +766,9 @@ async function handleAuthStateChange(user) {
     if (chatPage) chatPage.style.display = "flex";
 
     if (myName) myName.textContent = user.displayName || user.email?.split("@")[0] || "User";
-    if (myPhoto) myPhoto.src = safeImageURL(user.photoURL, user.displayName || user.email || "User");
+    const currentPhoto = safeImageURL(user.photoURL, user.displayName || user.email || "User");
+    if (myPhoto) myPhoto.src = currentPhoto;
+    if (mobileProfilePhoto) mobileProfilePhoto.src = currentPhoto;
 
     startPresenceTracking();
     startDirectoryListeners(user);
