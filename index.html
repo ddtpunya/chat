@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260729-zero-jump-mobile-v24">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-zero-jump-mobile-v24">
+    <link rel="manifest" href="manifest.webmanifest?v=20260729-white-screen-recovery-v25">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-white-screen-recovery-v25">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -69,13 +69,27 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260729-zero-jump-mobile-v24", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260729-white-screen-recovery-v25", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260729-zero-jump-mobile-v24">
+
+    <style id="criticalAppFallbackStyle">
+        html, body { margin: 0; width: 100%; height: 100%; background: #060b18; color: #fff; }
+        #authLoadingPage { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#060b18,#13224d); }
+        #authLoadingPage .auth-loading-card { padding: 26px; border-radius: 18px; background: #0f172a; color: #fff; text-align: center; }
+    </style>
+    <script>
+    window.addEventListener("error", (event) => {
+        const message = document.getElementById("authLoadingMessage");
+        if (message && /app\.js|auth\.js|firebase\.js/i.test(String(event.filename || ""))) {
+            message.textContent = "Aplikasi gagal dimuat. Muat ulang setelah file v25 selesai di-upload.";
+        }
+    }, true);
+    </script>
+    <link rel="stylesheet" href="style.css?v=20260729-white-screen-recovery-v25">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -696,8 +710,8 @@
 })();
 </script>
 
-<script type="module" src="firebase.js?v=20260729-zero-jump-mobile-v24"></script>
-<script type="module" src="auth.js?v=20260729-zero-jump-mobile-v24"></script>
-<script type="module" src="app.js?v=20260729-zero-jump-mobile-v24"></script>
+<script type="module" src="firebase.js?v=20260729-white-screen-recovery-v25"></script>
+<script type="module" src="auth.js?v=20260729-white-screen-recovery-v25"></script>
+<script type="module" src="app.js?v=20260729-white-screen-recovery-v25"></script>
 </body>
 </html>

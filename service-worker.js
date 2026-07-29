@@ -1,26 +1,25 @@
-const CACHE_NAME = "chat-ddt-pwa-v24";
-const VERSION = "20260729-zero-jump-mobile-v24";
-const APP_SHELL = [
-    "./",
+const CACHE_NAME = "chat-ddt-pwa-v25";
+const VERSION = "20260729-white-screen-recovery-v25";
+const CORE_ASSETS = [
     "./index.html",
     `./style.css?v=${VERSION}`,
     `./firebase.js?v=${VERSION}`,
     `./auth.js?v=${VERSION}`,
     `./app.js?v=${VERSION}`,
-    `./manifest.webmanifest?v=${VERSION}`,
-    "./apple-touch-icon.png",
-    "./icon-192.png",
-    "./icon-512.png",
-    "./icon-maskable-512.png"
+    `./manifest.webmanifest?v=${VERSION}`
 ];
 
 self.addEventListener("install", (event) => {
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE_NAME);
-        await Promise.allSettled(APP_SHELL.map(async (asset) => {
-            const response = await fetch(asset, { cache: "reload" });
-            if (response.ok) await cache.put(asset, response);
-        }));
+        for (const asset of CORE_ASSETS) {
+            try {
+                const response = await fetch(asset, { cache: "reload" });
+                if (response.ok) await cache.put(asset, response.clone());
+            } catch (error) {
+                console.warn("Cache awal dilewati:", asset, error);
+            }
+        }
         await self.skipWaiting();
     })());
 });
@@ -41,16 +40,19 @@ self.addEventListener("fetch", (event) => {
 
     event.respondWith((async () => {
         try {
-            const response = await fetch(request, { cache: "no-store" });
-            if (response.ok) {
+            const network = await fetch(request, { cache: "no-store" });
+            if (network.ok) {
                 const cache = await caches.open(CACHE_NAME);
-                cache.put(request, response.clone()).catch(() => {});
+                cache.put(request, network.clone()).catch(() => {});
             }
-            return response;
-        } catch {
-            return (await caches.match(request))
-                || (request.mode === "navigate" ? await caches.match("./index.html") : undefined)
-                || Response.error();
+            return network;
+        } catch (error) {
+            const cached = await caches.match(request, { ignoreSearch: false });
+            if (cached) return cached;
+            if (request.mode === "navigate") {
+                return (await caches.match("./index.html")) || Response.error();
+            }
+            return Response.error();
         }
     })());
 });

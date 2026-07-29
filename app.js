@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-zero-jump-mobile-v24";
+import { auth, db, storage } from "./firebase.js?v=20260729-white-screen-recovery-v25";
 import {
     collection,
     addDoc,
@@ -121,44 +121,9 @@ function scheduleResponsiveViewport() {
         responsiveViewportFrame = 0;
         syncResponsiveViewport();
 
-        // Ketika pengiriman sedang menunggu snapshot lokal, jangan biarkan
-        // event viewport Safari memicu scroll tambahan.
+        // Saat keyboard berubah ukuran, cukup jadwalkan satu penyesuaian akhir.
+        // Jangan melakukan scroll tambahan selama pesan baru menunggu snapshot.
         if (isComposerInputFocused() && !isPostSendBottomLocked()) {
-            settleMobileComposer({ forceBottom: true });
-        }
-    });
-}
-
-syncResponsiveViewport();
-        if (forceBottom) jumpMessageListToBottomNow();
-        return;
-    }
-
-    [0, 70, 180, 360].forEach((delay) => {
-        const timer = window.setTimeout(() => {
-            syncResponsiveViewport();
-
-            const chatPage = document.getElementById("chatPage");
-            if (!chatPage?.classList.contains("mobile-chat-open")) return;
-
-            if (forceBottom) jumpMessageListToBottomNow();
-        }, delay);
-        composerSettleTimers.push(timer);
-    });
-}
-
-function scheduleResponsiveViewport() {
-    if (responsiveViewportFrame) cancelAnimationFrame(responsiveViewportFrame);
-    const keepBottom = isComposerInputFocused();
-
-    responsiveViewportFrame = requestAnimationFrame(() => {
-        responsiveViewportFrame = 0;
-        syncResponsiveViewport();
-        if (!keepBottom) return;
-
-        if (isPostSendBottomLocked()) {
-            jumpMessageListToBottomNow();
-        } else {
             settleMobileComposer({ forceBottom: true });
         }
     });
