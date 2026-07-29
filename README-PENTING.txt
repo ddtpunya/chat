@@ -1,32 +1,28 @@
-CHAT DDT v20 — Mobile Keyboard, Typing, Edit/Delete & Reactions
+CHAT DDT — MODERN DYNAMIC MOBILE UI V22
 
-Perubahan utama:
-- Kolom ketik diposisikan presisi tepat di atas keyboard Safari/Chrome mobile.
-- Chat otomatis tetap berada pada pesan paling bawah ketika keyboard terbuka.
-- Indikator “Nama sedang mengetik…”.
-- Edit pesan sendiri dengan tanda “diedit”.
-- Hapus pesan untuk diri sendiri.
-- Tarik pesan untuk semua orang dengan keterangan “Pesan telah dihapus”.
-- Reaksi pesan: 👍 ❤️ 😂 😮.
+Fokus utama:
+- UI mobile lebih modern, dinamis, familiar, dan nyaman untuk penggunaan lama.
+- Header, pencarian, filter, daftar chat, bubble pesan, composer, bottom navigation, dan modal diperbarui.
+- Gerakan pesan saat mengirim tetap dinonaktifkan agar posisi chat stabil.
+- Push notification ditunda dan tidak disertakan pada paket ini.
 
-Pemasangan WAJIB:
-1. Upload SEMUA file dalam folder ini ke folder root website.
-2. Publish firestore.rules v20 melalui Firebase Console > Firestore Database > Rules.
-3. Pastikan auth.js masih berisi seluruh Gmail yang diizinkan pada ALLOWED_EMAILS.
-4. Tutup semua tab CHAT DDT di Safari.
-5. Hapus cache/data situs atau hapus ikon Home Screen versi lama.
-6. Buka kembali situs, login satu kali, lalu pasang ulang ke Home Screen bila diperlukan.
+Cara pemasangan:
+1. Buka auth.js lama dan salin semua Gmail pada ALLOWED_EMAILS.
+2. Masukkan kembali daftar Gmail tersebut ke auth.js v22.
+3. Timpa seluruh file website lama dengan semua file dari folder v22.
+4. Upload dan publish website.
+5. Tutup semua tab CHAT DDT lalu buka kembali.
+6. Jika memakai aplikasi Home Screen iPhone dan UI lama masih muncul, hapus ikon lama lalu pasang ulang.
 
-Catatan:
-- Hapus untuk diri sendiri menyembunyikan pesan hanya untuk akun tersebut.
-- Tarik untuk semua tidak menghapus dokumen pesan; isi diganti dengan penanda agar alur percakapan tetap jelas.
-- Indikator mengetik kedaluwarsa otomatis jika browser ditutup mendadak.
+Firestore:
+- Tidak ada perubahan rules yang diwajibkan khusus untuk UI v22.
+- Rules v19/v21 yang sedang digunakan tetap kompatibel.
 
-
-VERSI V20 — MOBILE FAMILIAR UI
-- Navigasi bawah mobile: Chat, Grup, Baru, Setelan.
-- Filter Semua / Belum dibaca / Grup.
-- Bubble chat kanan-kiri dan composer bergaya aplikasi chat modern.
-- Tekan lama pesan untuk membuka reaksi, balas, edit, dan hapus.
-- Swipe dari tepi kiri untuk kembali ke daftar chat.
-- Tidak ada perubahan Firestore Rules dari v19.
+Tema mobile baru:
+- Aurora Modern
+- Lavender Night
+- Midnight Blue
+- Ocean Calm
+- Forest Soft
+- Graphite Dark
+- Dusk Purple

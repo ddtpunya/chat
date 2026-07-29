@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-mobile-familiar-ui-v20";
+import { auth, db, storage } from "./firebase.js?v=20260729-modern-dynamic-ui-v22";
 import {
     collection,
     addDoc,
@@ -496,6 +496,7 @@ function createMessageBase(user, chatId, replyData = activeReply) {
         roomKind: currentRoom.kind,
         ...(currentRoom.kind === "group" && currentRoom.id ? { groupId: currentRoom.id } : {}),
         createdAt: serverTimestamp(),
+        clientCreatedAt: Date.now(),
         readBy: [user.uid],
         hiddenFor: [],
         deletedForAll: false,
@@ -806,13 +807,16 @@ input?.addEventListener("keydown", (event) => {
 // =========================
 // AUTO SCROLL
 // =========================
+let bottomScrollFrame = 0;
 function scrollToBottom() {
     if (!messages) return;
-    requestAnimationFrame(() => {
+    if (bottomScrollFrame) cancelAnimationFrame(bottomScrollFrame);
+    bottomScrollFrame = requestAnimationFrame(() => {
+        bottomScrollFrame = 0;
         messages.scrollTop = messages.scrollHeight;
-        if (isComposerInputFocused()) {
-            settleMobileComposer({ forceBottom: true });
-        }
+        requestAnimationFrame(() => {
+            if (messages) messages.scrollTop = messages.scrollHeight;
+        });
     });
 }
 
@@ -843,6 +847,8 @@ sendBtn?.addEventListener("click", async () => {
 
     try {
         sendBtn.disabled = true;
+        document.body.classList.add("message-send-stable");
+        const keepKeyboardFocus = isComposerInputFocused();
         await addDoc(collection(db, "messages"), {
             ...createMessageBase(user, targetChatId, replyData),
             text
@@ -852,11 +858,14 @@ sendBtn?.addEventListener("click", async () => {
         stopLocalTyping();
         clearReply();
         scrollToBottom();
+        if (keepKeyboardFocus) input.focus({ preventScroll: true });
+        window.setTimeout(scrollToBottom, 80);
     } catch (error) {
         console.error("Gagal mengirim pesan:", error);
         alert("Pesan gagal dikirim. Periksa koneksi atau aturan Firestore.");
     } finally {
         sendBtn.disabled = false;
+        window.setTimeout(() => document.body.classList.remove("message-send-stable"), 180);
     }
 });
 
@@ -1616,7 +1625,7 @@ async function toggleMessageReaction(messageDoc, emoji) {
         });
     } catch (error) {
         console.error("Gagal menyimpan reaksi:", error);
-        showToast("Reaksi gagal disimpan. Periksa Firestore Rules v20.", "error");
+        showToast("Reaksi gagal disimpan. Periksa Firestore Rules v21.", "error");
     }
 }
 
@@ -1664,7 +1673,7 @@ async function hideMessageForMe(messageDoc) {
         showToast("Pesan dihapus untuk Anda.");
     } catch (error) {
         console.error("Gagal menghapus pesan untuk diri sendiri:", error);
-        showToast("Pesan gagal dihapus. Periksa Firestore Rules v20.", "error");
+        showToast("Pesan gagal dihapus. Periksa Firestore Rules v21.", "error");
     }
 }
 
@@ -1685,7 +1694,7 @@ async function retractMessageForAll(messageDoc) {
         showToast("Pesan ditarik untuk semua orang.");
     } catch (error) {
         console.error("Gagal menarik pesan:", error);
-        showToast("Pesan gagal ditarik. Periksa Firestore Rules v20.", "error");
+        showToast("Pesan gagal ditarik. Periksa Firestore Rules v21.", "error");
     }
 }
 
@@ -1747,7 +1756,13 @@ function bindMessageLongPress(row, messageDoc) {
 function renderCurrentMessages({ autoScroll = false } = {}) {
     if (!messages) return;
 
-    const previousDistanceFromBottom = messages.scrollHeight - messages.scrollTop;
+    const firstVisibleRow = Array.from(messages.querySelectorAll(".message-row")).find((row) => {
+        const rect = row.getBoundingClientRect();
+        const listRect = messages.getBoundingClientRect();
+        return rect.bottom >= listRect.top + 4;
+    });
+    const anchorId = firstVisibleRow?.id || "";
+    const anchorOffset = firstVisibleRow ? firstVisibleRow.getBoundingClientRect().top - messages.getBoundingClientRect().top : 0;
     const me = auth.currentUser;
     messages.innerHTML = "";
 
@@ -1867,9 +1882,12 @@ function renderCurrentMessages({ autoScroll = false } = {}) {
 
     if (autoScroll && !currentMessageSearch) {
         scrollToBottom();
-    } else {
+    } else if (anchorId) {
         requestAnimationFrame(() => {
-            messages.scrollTop = Math.max(0, messages.scrollHeight - previousDistanceFromBottom);
+            const anchor = document.getElementById(anchorId);
+            if (!anchor || !messages) return;
+            const currentOffset = anchor.getBoundingClientRect().top - messages.getBoundingClientRect().top;
+            messages.scrollTop += currentOffset - anchorOffset;
         });
     }
     scrollBottomBtn?.classList.toggle("show", !isNearBottom());
@@ -1912,9 +1930,12 @@ function listenToChat(chatId) {
 
         const shouldAutoScroll = isNearBottom() || isComposerInputFocused();
         latestMessageDocs = snapshot.docs.slice().sort((a, b) => {
-            const aTime = a.data().createdAt?.toMillis?.() || 0;
-            const bTime = b.data().createdAt?.toMillis?.() || 0;
-            return aTime - bTime;
+            const aData = a.data() || {};
+            const bData = b.data() || {};
+            const aTime = aData.createdAt?.toMillis?.() || Number(aData.clientCreatedAt) || 0;
+            const bTime = bData.createdAt?.toMillis?.() || Number(bData.clientCreatedAt) || 0;
+            if (aTime !== bTime) return aTime - bTime;
+            return a.id.localeCompare(b.id);
         });
 
         renderCurrentMessages({ autoScroll: shouldAutoScroll });
@@ -1949,6 +1970,7 @@ function showToast(message, type = "success") {
         window.setTimeout(() => toast.remove(), 220);
     }, 2800);
 }
+window.chatShowToast = showToast;
 
 function openModal(modal) {
     if (!modal) return;
@@ -2092,7 +2114,7 @@ editMessageForm?.addEventListener("submit", async (event) => {
         showToast("Pesan berhasil diedit.");
     } catch (error) {
         console.error("Gagal mengedit pesan:", error);
-        showToast("Pesan gagal diedit. Periksa Firestore Rules v20.", "error");
+        showToast("Pesan gagal diedit. Periksa Firestore Rules v21.", "error");
     } finally {
         if (saveEditedMessageBtn) saveEditedMessageBtn.disabled = false;
     }
@@ -2455,11 +2477,11 @@ async function searchFriendByEmail() {
             friendSearchResult.innerHTML = `
                 <div class="friend-search-feedback is-empty">
                     <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>Pencarian gagal. Periksa koneksi dan Firestore Rules v13.</span>
+                    <span>Pencarian gagal. Periksa koneksi dan Firestore Rules v21.</span>
                 </div>
             `;
         }
-        showToast("Pencarian gagal. Publish Firestore Rules v13.", "error");
+        showToast("Pencarian gagal. Publish Firestore Rules v21.", "error");
     } finally {
         friendSearchBusy = false;
         if (friendSearchBtn) friendSearchBtn.disabled = false;
@@ -2519,7 +2541,7 @@ async function performFriendAction(action, otherUid, button) {
         }
     } catch (error) {
         console.error("Aksi pertemanan gagal:", error);
-        showToast("Aksi pertemanan gagal. Publish Firestore Rules v13.", "error");
+        showToast("Aksi pertemanan gagal. Publish Firestore Rules v21.", "error");
     } finally {
         if (button) button.disabled = false;
     }
@@ -2733,13 +2755,15 @@ createGroupForm?.addEventListener("submit", async (event) => {
 // =========================
 const COMPACT_MESSAGES_KEY = "chat-ddt-compact-messages";
 const MOBILE_THEME_KEY = "chat-ddt-mobile-theme";
-const MOBILE_THEMES = ["midnight", "ocean", "forest", "graphite", "dusk"];
+const MOBILE_THEMES = ["midnight", "ocean", "forest", "graphite", "dusk", "aurora", "lavender"];
 const MOBILE_THEME_COLORS = {
     midnight: "#10182b",
     ocean: "#0b2026",
     forest: "#13251f",
     graphite: "#1c1f24",
-    dusk: "#211a2d"
+    dusk: "#211a2d",
+    aurora: "#0d1724",
+    lavender: "#1a1626"
 };
 
 function applyCompactMessages(enabled) {
@@ -2885,6 +2909,7 @@ function showNoActiveChat() {
     latestReactionDocs = [];
     renderTypingIndicator();
     currentChatId = "";
+    window.chatCurrentRoomId = "";
     latestMessageDocs = [];
     currentRoom = {
         kind: "none",
@@ -2982,6 +3007,7 @@ window.openChat = function (target) {
 
     setActiveChatControls(true);
     currentChatId = currentRoom.chatId;
+    window.chatCurrentRoomId = currentRoom.chatId;
     latestMessageDocs = [];
     if (roomName) roomName.textContent = currentRoom.name;
     if (currentRoom.kind === "private") {
@@ -3032,6 +3058,28 @@ chatArea?.addEventListener("pointerup", (event) => {
 
 chatArea?.addEventListener("pointercancel", () => { mobileBackGesture = null; }, { passive: true });
 
+let pendingPushChatId = new URLSearchParams(location.search).get("openChat") || "";
+function tryOpenPushChat() {
+    if (!pendingPushChatId || !auth.currentUser) return;
+    const groups = Array.isArray(window.chatDirectoryGroups) ? window.chatDirectoryGroups : [];
+    const users = Array.isArray(window.chatDirectoryUsers) ? window.chatDirectoryUsers : [];
+    const group = groups.find((item) => `group_${item.id}` === pendingPushChatId);
+    if (group) {
+        pendingPushChatId = "";
+        history.replaceState({}, "", location.pathname);
+        window.openChat?.({ kind: "group", ...group });
+        return;
+    }
+    const friend = users.find((item) => directChatId(auth.currentUser.uid, item.uid) === pendingPushChatId);
+    if (friend && window.chatFriendUidSet?.has(friend.uid)) {
+        pendingPushChatId = "";
+        history.replaceState({}, "", location.pathname);
+        window.openChat?.(friend);
+    }
+}
+window.addEventListener("chat-directory-updated", tryOpenPushChat);
+auth.onAuthStateChanged(() => window.setTimeout(tryOpenPushChat, 250));
+
 window.addEventListener("resize", () => {
     syncResponsiveViewport();
     if (!isMobile()) {
@@ -3044,3 +3092,17 @@ window.addEventListener("resize", () => {
         applySidebarCollapse(false);
     }
 });
+
+
+// =========================
+// MODERN MOBILE MICRO-INTERACTIONS — V22
+// =========================
+input?.addEventListener("focus", () => document.body.classList.add("composer-is-active"));
+input?.addEventListener("blur", () => document.body.classList.remove("composer-is-active"));
+
+document.addEventListener("pointerdown", (event) => {
+    const button = event.target?.closest?.("button");
+    if (!button || !window.matchMedia?.("(max-width: 768px)").matches) return;
+    button.classList.add("mobile-pressed");
+    window.setTimeout(() => button.classList.remove("mobile-pressed"), 150);
+}, { passive: true });

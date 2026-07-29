@@ -2,9 +2,9 @@
   "id": "./",
   "name": "CHAT DDT",
   "short_name": "CHAT DDT",
-  "description": "Private chat dan group chat realtime DDT.",
+  "description": "Private chat dan group chat realtime DDT dengan UI mobile modern.",
   "lang": "id-ID",
-  "start_url": "./?source=iphone-home-screen&v=19",
+  "start_url": "./?source=iphone-home-screen&v=22",
   "scope": "./",
   "display": "standalone",
   "display_override": [
@@ -12,8 +12,8 @@
     "minimal-ui"
   ],
   "orientation": "any",
-  "background_color": "#060b18",
-  "theme_color": "#111a35",
+  "background_color": "#071019",
+  "theme_color": "#0d1724",
   "icons": [
     {
       "src": "icon-192.png",

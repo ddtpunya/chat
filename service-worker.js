@@ -1,12 +1,13 @@
-const CACHE_NAME = "chat-ddt-pwa-v20";
+const CACHE_NAME = "chat-ddt-pwa-v22";
+const VERSION = "20260729-modern-dynamic-ui-v22";
 const APP_SHELL = [
     "./",
     "./index.html",
-    "./style.css?v=20260729-mobile-familiar-ui-v20",
-    "./firebase.js?v=20260729-mobile-familiar-ui-v20",
-    "./auth.js?v=20260729-mobile-familiar-ui-v20",
-    "./app.js?v=20260729-mobile-familiar-ui-v20",
-    "./manifest.webmanifest?v=20260729-mobile-familiar-ui-v20",
+    `./style.css?v=${VERSION}`,
+    `./firebase.js?v=${VERSION}`,
+    `./auth.js?v=${VERSION}`,
+    `./app.js?v=${VERSION}`,
+    `./manifest.webmanifest?v=${VERSION}`,
     "./apple-touch-icon.png",
     "./icon-192.png",
     "./icon-512.png",
@@ -17,12 +18,8 @@ self.addEventListener("install", (event) => {
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE_NAME);
         await Promise.allSettled(APP_SHELL.map(async (asset) => {
-            try {
-                const response = await fetch(asset, { cache: "reload" });
-                if (response.ok) await cache.put(asset, response);
-            } catch (error) {
-                console.warn("Gagal precache:", asset, error);
-            }
+            const response = await fetch(asset, { cache: "reload" });
+            if (response.ok) await cache.put(asset, response);
         }));
         await self.skipWaiting();
     })());
@@ -39,19 +36,18 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
     const request = event.request;
     if (request.method !== "GET") return;
-
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
 
     event.respondWith((async () => {
         try {
-            const response = await fetch(request);
-            if (response && response.ok) {
+            const response = await fetch(request, { cache: "no-store" });
+            if (response.ok) {
                 const cache = await caches.open(CACHE_NAME);
                 cache.put(request, response.clone()).catch(() => {});
             }
             return response;
-        } catch (error) {
+        } catch {
             return (await caches.match(request))
                 || (request.mode === "navigate" ? await caches.match("./index.html") : undefined)
                 || Response.error();

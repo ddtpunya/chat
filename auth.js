@@ -19,7 +19,7 @@ import {
     deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
-import { auth, db } from "./firebase.js?v=20260729-mobile-familiar-ui-v20";
+import { auth, db } from "./firebase.js?v=20260729-modern-dynamic-ui-v22";
 
 // Tambahkan email lain ke daftar ini agar mereka dapat login.
 // Akun tidak ditampilkan sebagai direktori publik; penambahan teman memakai pencarian Gmail exact-match.
@@ -42,6 +42,7 @@ const sidebarSearchInput = document.getElementById("sidebarSearchInput");
 const groupsBtn = document.getElementById("groupsBtn");
 const mobileProfilePhoto = document.getElementById("mobileProfilePhoto");
 const mobileHomeSubtitle = document.getElementById("mobileHomeSubtitle");
+const mobileListTitle = document.getElementById("mobileListTitle");
 const mobileAllChatsTab = document.getElementById("mobileAllChatsTab");
 const mobileUnreadChatsTab = document.getElementById("mobileUnreadChatsTab");
 const mobileGroupsChatsTab = document.getElementById("mobileGroupsChatsTab");
@@ -798,3 +799,17 @@ async function handleAuthStateChange(user) {
 }
 
 initializeAuthentication();
+
+
+// =========================
+// MODERN MOBILE UI STATE — V22
+// =========================
+userList?.addEventListener("scroll", () => {
+    document.body.classList.toggle("mobile-list-scrolled", userList.scrollTop > 8);
+}, { passive: true });
+
+document.querySelectorAll(".mobile-nav-item, .mobile-filter-tab, .mobile-header-btn, .mobile-profile-btn").forEach((button) => {
+    button.addEventListener("pointerdown", () => {
+        try { navigator.vibrate?.(5); } catch {}
+    }, { passive: true });
+});

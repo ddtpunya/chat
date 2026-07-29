@@ -9,8 +9,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <meta name="apple-mobile-web-app-title" content="CHAT DDT">
     <meta name="format-detection" content="telephone=no">
-    <link rel="manifest" href="manifest.webmanifest?v=20260729-mobile-familiar-ui-v20">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-mobile-familiar-ui-v20">
+    <link rel="manifest" href="manifest.webmanifest?v=20260729-modern-dynamic-ui-v22">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=20260729-modern-dynamic-ui-v22">
     <title>CHAT DDT</title>
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -69,13 +69,13 @@
     (() => {
         if (!("serviceWorker" in navigator)) return;
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("./service-worker.js?v=20260729-mobile-familiar-ui-v20", { scope: "./" })
+            navigator.serviceWorker.register("./service-worker.js?v=20260729-modern-dynamic-ui-v22", { scope: "./" })
                 .then((registration) => registration.update())
                 .catch((error) => console.warn("Service worker gagal:", error));
         });
     })();
     </script>
-    <link rel="stylesheet" href="style.css?v=20260729-mobile-familiar-ui-v20">
+    <link rel="stylesheet" href="style.css?v=20260729-modern-dynamic-ui-v22">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -108,7 +108,7 @@
         <header class="mobile-home-header" aria-label="Header daftar chat">
             <div class="mobile-home-heading">
                 <span class="mobile-home-kicker">CHAT DDT</span>
-                <h1>Pesan</h1>
+                <h1>Percakapan</h1>
                 <small id="mobileHomeSubtitle">Teman dan grup Anda</small>
             </div>
             <div class="mobile-home-actions">
@@ -148,7 +148,7 @@
         <div class="sidebar-search-wrap">
             <label class="search-box" for="sidebarSearchInput">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input id="sidebarSearchInput" type="search" placeholder="Cari teman atau grup..." autocomplete="off">
+                <input id="sidebarSearchInput" type="search" placeholder="Cari percakapan..." autocomplete="off">
             </label>
         </div>
 
@@ -172,12 +172,17 @@
             <span class="button-label">Buat Grup Baru</span>
         </button>
 
+        <div class="mobile-list-heading" aria-hidden="true">
+            <span id="mobileListTitle">Percakapan terbaru</span>
+            <span class="mobile-live-pill"><i></i> Realtime</span>
+        </div>
+
         <div id="userList" class="group-list" aria-live="polite"></div>
 
         <nav class="mobile-bottom-nav" aria-label="Navigasi utama mobile">
             <button id="mobileChatsNav" class="mobile-nav-item active" type="button">
                 <span class="mobile-nav-icon"><i class="fa-solid fa-comment-dots"></i><span id="mobileChatsUnreadBadge" class="mobile-nav-badge" hidden>0</span></span>
-                <span>Chat</span>
+                <span>Pesan</span>
             </button>
             <button id="mobileGroupsNav" class="mobile-nav-item" type="button">
                 <span class="mobile-nav-icon"><i class="fa-solid fa-user-group"></i></span>
@@ -185,7 +190,7 @@
             </button>
             <button id="mobileNewGroupNav" class="mobile-nav-item mobile-nav-create" type="button" title="Buat grup baru">
                 <span class="mobile-nav-create-icon"><i class="fa-solid fa-plus"></i></span>
-                <span>Baru</span>
+                <span>Buat</span>
             </button>
             <button id="mobileSettingsNav" class="mobile-nav-item" type="button">
                 <span class="mobile-nav-icon"><i class="fa-solid fa-gear"></i><span id="mobileSettingsRequestBadge" class="mobile-nav-badge" hidden>0</span></span>
@@ -415,6 +420,8 @@
                         <option value="forest">Forest Soft</option>
                         <option value="graphite">Graphite Dark</option>
                         <option value="dusk">Dusk Purple</option>
+                        <option value="aurora">Aurora Modern</option>
+                        <option value="lavender">Lavender Night</option>
                     </select>
                 </div>
                 <small class="field-help">Semua tema dibuat gelap dan lembut agar lebih nyaman digunakan lama.</small>
@@ -689,8 +696,8 @@
 })();
 </script>
 
-<script type="module" src="firebase.js?v=20260729-mobile-familiar-ui-v20"></script>
-<script type="module" src="auth.js?v=20260729-mobile-familiar-ui-v20"></script>
-<script type="module" src="app.js?v=20260729-mobile-familiar-ui-v20"></script>
+<script type="module" src="firebase.js?v=20260729-modern-dynamic-ui-v22"></script>
+<script type="module" src="auth.js?v=20260729-modern-dynamic-ui-v22"></script>
+<script type="module" src="app.js?v=20260729-modern-dynamic-ui-v22"></script>
 </body>
 </html>
