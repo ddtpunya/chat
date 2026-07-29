@@ -6002,3 +6002,72 @@ body.mobile-theme-lavender {
         min-height: 13px !important;
     }
 }
+
+
+/* =========================================================
+   FULLSCREEN THEME + SAFARI SAFE-AREA FIX — V26
+   Menghilangkan garis putih di atas dan menyatukan status bar.
+   ========================================================= */
+:root {
+    --mobile-page-bg: #05080f;
+    color-scheme: dark;
+}
+
+html,
+body {
+    background-color: var(--mobile-page-bg, #05080f) !important;
+}
+
+html[data-mobile-theme="midnight"] { --mobile-page-bg: #05080f; }
+html[data-mobile-theme="ocean"] { --mobile-page-bg: #061216; }
+html[data-mobile-theme="forest"] { --mobile-page-bg: #09130f; }
+html[data-mobile-theme="graphite"] { --mobile-page-bg: #111316; }
+html[data-mobile-theme="dusk"] { --mobile-page-bg: #120e18; }
+html[data-mobile-theme="aurora"] { --mobile-page-bg: #07111d; }
+html[data-mobile-theme="lavender"] { --mobile-page-bg: #110d19; }
+
+@media (max-width: 768px) {
+    html,
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        min-height: 100% !important;
+        background: var(--mobile-page-bg, #05080f) !important;
+    }
+
+    /* Mengisi area notch/status bar yang berada di luar visual viewport. */
+    body::before {
+        content: "";
+        position: fixed;
+        z-index: 2147483000;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: max(env(safe-area-inset-top), var(--visual-top, 0px), 1px);
+        background: var(--mobile-page-bg, #05080f);
+        pointer-events: none;
+    }
+
+    #authLoadingPage,
+    #loginPage,
+    #chatPage {
+        background-color: var(--mobile-page-bg, #05080f) !important;
+    }
+
+    #chatPage,
+    .sidebar,
+    .chat,
+    #messages {
+        border-top: 0 !important;
+        outline: 0 !important;
+        box-shadow: none;
+    }
+}
+
+@media (display-mode: standalone) {
+    html,
+    body {
+        background: var(--mobile-page-bg, #05080f) !important;
+    }
+}

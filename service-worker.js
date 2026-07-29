@@ -1,5 +1,5 @@
 const CACHE_NAME = "chat-ddt-pwa-v25";
-const VERSION = "20260729-white-screen-recovery-v25";
+const VERSION = "20260729-fullscreen-theme-fix-v26";
 const CORE_ASSETS = [
     "./index.html",
     `./style.css?v=${VERSION}`,

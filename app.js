@@ -1,4 +1,4 @@
-import { auth, db, storage } from "./firebase.js?v=20260729-white-screen-recovery-v25";
+import { auth, db, storage } from "./firebase.js?v=20260729-fullscreen-theme-fix-v26";
 import {
     collection,
     addDoc,
@@ -2856,13 +2856,13 @@ const COMPACT_MESSAGES_KEY = "chat-ddt-compact-messages";
 const MOBILE_THEME_KEY = "chat-ddt-mobile-theme";
 const MOBILE_THEMES = ["midnight", "ocean", "forest", "graphite", "dusk", "aurora", "lavender"];
 const MOBILE_THEME_COLORS = {
-    midnight: "#10182b",
-    ocean: "#0b2026",
-    forest: "#13251f",
-    graphite: "#1c1f24",
-    dusk: "#211a2d",
-    aurora: "#0d1724",
-    lavender: "#1a1626"
+    midnight: "#05080f",
+    ocean: "#061216",
+    forest: "#09130f",
+    graphite: "#111316",
+    dusk: "#120e18",
+    aurora: "#07111d",
+    lavender: "#110d19"
 };
 
 function applyCompactMessages(enabled) {
@@ -2876,12 +2876,26 @@ function normalizeMobileTheme(theme) {
 
 function applyMobileTheme(theme, { persist = true } = {}) {
     const selected = normalizeMobileTheme(theme);
-    MOBILE_THEMES.forEach((name) => document.body.classList.remove(`mobile-theme-${name}`));
+    const themeColor = MOBILE_THEME_COLORS[selected];
+
+    MOBILE_THEMES.forEach((name) => {
+        document.body.classList.remove(`mobile-theme-${name}`);
+        document.documentElement.classList.remove(`mobile-theme-${name}`);
+    });
+
     document.body.classList.add(`mobile-theme-${selected}`);
+    document.documentElement.classList.add(`mobile-theme-${selected}`);
     document.body.dataset.mobileTheme = selected;
+    document.documentElement.dataset.mobileTheme = selected;
+
+    // Safari mengambil warna area status bar dari html/theme-color.
+    document.documentElement.style.setProperty("--mobile-page-bg", themeColor);
+    document.body.style.setProperty("--mobile-page-bg", themeColor);
+    document.documentElement.style.backgroundColor = themeColor;
+    document.body.style.backgroundColor = themeColor;
 
     if (mobileThemeSelect) mobileThemeSelect.value = selected;
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", MOBILE_THEME_COLORS[selected]);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColor);
 
     if (persist) localStorage.setItem(MOBILE_THEME_KEY, selected);
 }
